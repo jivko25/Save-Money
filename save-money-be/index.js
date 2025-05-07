@@ -9,9 +9,39 @@ const PORT = 3000;
 app.use(cors()); // позволява заявки от различни домейни (например от телефона)
 app.use(bodyParser.json()); // за да може да чете JSON от тялото на заявката
 
-app.get('/api/test', (req, res) => {
-  res.json('test123')
-})
+// Вземане на всички записи
+app.get('/api/scan', async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('receipts').select('*');
+
+    if (error) return res.status(400).json({ error });
+
+    res.json(data);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+// Вземане на един запис по ID
+app.get('/api/scan/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const { data, error } = await supabase
+      .from('receipts')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) return res.status(404).json({ error: 'Record not found' });
+
+    res.json(data);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
 
 // POST endpoint за QR данните
 app.post('/qr', (req, res) => {
@@ -57,4 +87,4 @@ app.listen(PORT, () => {
   console.log(`Сървърът работи на http://localhost:${PORT}`);
 });
 
-export default app;
+module.exports = app;
