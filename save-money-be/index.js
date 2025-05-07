@@ -10,7 +10,7 @@ app.use(cors()); // позволява заявки от различни дом
 app.use(bodyParser.json()); // за да може да чете JSON от тялото на заявката
 
 app.get('/api/test', (req, res) => {
-  res.json('test1234')
+  res.json('test123')
 })
 
 // POST endpoint за QR данните
