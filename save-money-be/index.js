@@ -9,6 +9,10 @@ const PORT = 3000;
 app.use(cors()); // позволява заявки от различни домейни (например от телефона)
 app.use(bodyParser.json()); // за да може да чете JSON от тялото на заявката
 
+app.get('/api/test', (req, res) => {
+  res.json('test')
+})
+
 // POST endpoint за QR данните
 app.post('/qr', (req, res) => {
   const { data } = req.body;
