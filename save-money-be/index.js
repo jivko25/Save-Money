@@ -1,8 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-const supabase = require('./supabase');
 const receiptsRouter = require('./src/controllers/receptController');
+const authRouter = require('./src/controllers/authController');
 
 const app = express();
 const PORT = 3000;
@@ -11,6 +11,7 @@ app.use(cors()); // позволява заявки от различни дом
 app.use(bodyParser.json()); // за да може да чете JSON от тялото на заявката
 
 app.use('/api/scan', receiptsRouter);
+app.use('/api/auth', authRouter)
 
 app.listen(PORT, () => {
   console.log(`Сървърът работи на http://localhost:${PORT}`);
