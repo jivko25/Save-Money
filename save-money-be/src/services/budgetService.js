@@ -96,6 +96,8 @@ async function deleteBudget(req, res) {
 
 async function joinBudgetByInviteCode(req, res) {
     const userId = req.user?.id;
+    const userDisplayName = req.user?.display_name || 'Неизвестен потребител';
+
     const { invite_code } = req.body;
 
     if (!userId || !invite_code) {
@@ -133,6 +135,7 @@ async function joinBudgetByInviteCode(req, res) {
             user_id: userId,
             budget_id: budget.id,
             role: "member",
+            display_name: userDisplayName
         });
 
     if (joinError) {
@@ -142,5 +145,95 @@ async function joinBudgetByInviteCode(req, res) {
     return res.json({ budget });
 }
 
+async function getSpendingByUserInBudget(req, res) {
+    try {
+        const { budgetId } = req.params; // Вземаме budgetId от URL параметрите
+        const requestingUserId = req.user.id; // ID на автентикирания потребител
 
-module.exports = { createBudget, getBudgetsForCurrentUser, getBudgetById, deleteBudget, joinBudgetByInviteCode };
+        if (!budgetId) {
+            return res.status(400).json({ error: 'Идентификатор на бюджет е задължителен.' });
+        }
+
+        // 1. Проверка дали текущият потребител е член на бюджета (авторизация)
+        // Трябва да изберем * (или поне user_id), за да проверим членството
+        const { data: userBudgetMembership, error: membershipError } = await supabase
+            .from('user_budgets')
+            .select('*')
+            .eq('user_id', requestingUserId)
+            .eq('budget_id', budgetId)
+            .maybeSingle(); // Използваме maybeSingle, ако резултатът може да е 0 или 1
+
+        if (membershipError) {
+            console.error('Грешка при проверка на членство в бюджет:', membershipError);
+            return res.status(500).json({ error: 'Грешка при проверка на членство в бюджета.' });
+        }
+
+        if (!userBudgetMembership) { // Проверяваме за null, ако maybeSingle не върне резултат
+            return res.status(403).json({ error: 'Нямате достъп до този бюджет или не сте член.' });
+        }
+
+        // 2. Вземаме всички бележки за този конкретен бюджет
+        const { data: receipts, error: receiptsError } = await supabase
+            .from('receipts')
+            .select('amount, scanned_by') // Избираме само нужните ни колони
+            .eq('budget_id', budgetId); // Филтрираме по budgetId
+
+        if (receiptsError) {
+            console.error('Грешка при извличане на бележки за бюджета:', receiptsError);
+            return res.status(500).json({ error: receiptsError.message });
+        }
+
+        // 3. Извличаме display_name на ВСИЧКИ членове на бюджета от user_budgets таблицата
+        const { data: budgetMembers, error: membersError } = await supabase
+            .from('user_budgets')
+            .select('user_id, display_name') // <-- Взимаме user_id и display_name
+            .eq('budget_id', budgetId);
+
+        if (membersError) {
+            console.error('Грешка при извличане на членовете на бюджета:', membersError);
+            // Продължаваме дори и без имена, ще останат 'Неизвестен потребител'
+        }
+
+        // Създаваме map за бърз достъп до display_name по user_id
+        const memberDisplayNames = {};
+        if (budgetMembers) {
+            budgetMembers.forEach(member => {
+                memberDisplayNames[member.user_id] = member.display_name || 'Неизвестен потребител';
+            });
+        }
+
+        // 4. Групираме разходите и сумираме по потребител
+        // Използваме memberDisplayNames, за да зададем правилното userName
+        const spendingByUserMap = receipts.reduce((acc, receipt) => {
+            const userId = receipt.scanned_by;
+            const amount = parseFloat(receipt.amount);
+
+            if (isNaN(amount)) {
+                console.warn(`Бележка с ID ${receipt.id} има невалидна сума: ${receipt.amount}`);
+                return acc;
+            }
+
+            if (!acc[userId]) {
+                acc[userId] = {
+                    userId: userId,
+                    totalSpending: 0,
+                    // <--- Взимаме display_name от map-а на членовете
+                    userName: memberDisplayNames[userId] || 'Неизвестен потребител' 
+                };
+            }
+            acc[userId].totalSpending += amount;
+            return acc;
+        }, {});
+
+        // 5. Преобразуваме обекта в масив за фронтенда
+        const result = Object.values(spendingByUserMap);
+        res.json(result); // Връщаме данните
+
+    } catch (err) {
+        console.error('Вътрешна сървърна грешка в getSpendingByUserInBudget:', err);
+        res.status(500).json({ error: 'Вътрешна сървърна грешка.' });
+    }
+}
+
+
+module.exports = { createBudget, getBudgetsForCurrentUser, getBudgetById, deleteBudget, joinBudgetByInviteCode, getSpendingByUserInBudget };

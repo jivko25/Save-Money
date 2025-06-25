@@ -1,17 +1,36 @@
 const supabase = require('../../supabase');
 
 async function register(req, res) {
-    const { email, password } = req.body;
+    const { email, password, displayName } = req.body; // <--- Приемаме displayName
+
+    if (!displayName) {
+        return res.status(400).json({ error: 'Показваното име (display name) е задължително.' });
+    }
 
     try {
-        const { data, error } = await supabase.auth.signUp({ email, password });
+        // Използваме 'data' опцията на signUp за допълнителни метаданни
+        const { data, error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: { // <--- Използваме 'options' обект за допълнителни данни
+                data: {
+                    display_name: displayName, // <--- Запазваме display name
+                    // Може да добавите и други дефолтни данни тук, ако е необходимо
+                },
+            },
+        });
 
-        if (error) return res.status(400).json({ error: error.message });
+        if (error) {
+            // Supabase често връща грешки като "User already registered" или "Invalid email"
+            return res.status(400).json({ error: error.message });
+        }
 
-        res.status(201).json(data);
+        // Ако искаш да върнеш потребителските данни веднага, те са в data.user
+        // Но при signUp с потвърждение по имейл, data.user може да е null, докато не се потвърди
+        res.status(201).json({ message: 'Регистрацията е успешна. Моля, потвърдете имейла си.', user: data.user });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Server error during registration.' });
+        console.error('Грешка при регистрация на сървъра:', err);
+        res.status(500).json({ error: 'Вътрешна сървърна грешка при регистрация.' });
     }
 }
 
