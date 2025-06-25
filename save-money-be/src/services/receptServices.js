@@ -13,6 +13,30 @@ async function getAllReceipts(req, res) {
     }
 }
 
+async function getReceiptsByBudgetId(req, res) {
+    const { budgetId } = req.params;
+
+    if (!budgetId) {
+        return res.status(400).json({ error: 'Missing budgetId in URL' });
+    }
+
+    try {
+        const { data, error } = await supabase
+            .from('receipts')
+            .select('*')
+            .eq('budget_id', budgetId);
+
+        if (error) {
+            return res.status(400).json({ error });
+        }
+
+        res.json(data);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Server error.' });
+    }
+}
+
 async function getSingleReceipt(req, res) {
     const { id } = req.params;
 
@@ -61,5 +85,6 @@ async function postReceipt(req, res) {
 module.exports = {
     getAllReceipts,
     getSingleReceipt,
-    postReceipt
+    postReceipt,
+    getReceiptsByBudgetId
 }

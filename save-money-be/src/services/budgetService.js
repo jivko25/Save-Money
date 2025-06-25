@@ -2,7 +2,8 @@ const supabase = require('../../supabase');
 const { generateInviteCode } = require('../utils/generateId');
 
 async function createBudget(req, res) {
-    const { name, userId } = req.body;
+    const userId = req.user?.id;
+    const { name } = req.body;
 
     if (!name || !userId) {
         return res.status(400).json({ error: 'Missing name or userId' });
@@ -33,11 +34,11 @@ async function createBudget(req, res) {
     return res.status(201).json({ budget });
 }
 
-async function getBudgetsForUser(req, res) {
-    const userId = req.params.userId || req.query.userId;
+async function getBudgetsForCurrentUser(req, res) {
+    const userId = req.user?.id;
 
     if (!userId) {
-        return res.status(400).json({ error: 'Missing userId' });
+        return res.status(401).json({ error: 'Неавторизиран достъп – липсва userId в токена' });
     }
 
     const { data, error } = await supabase
@@ -94,7 +95,8 @@ async function deleteBudget(req, res) {
 }
 
 async function joinBudgetByInviteCode(req, res) {
-    const { userId, invite_code } = req.body;
+    const userId = req.user?.id;
+    const { invite_code } = req.body;
 
     if (!userId || !invite_code) {
         return res.status(400).json({ error: 'Missing userId or invite_code' });
@@ -141,4 +143,4 @@ async function joinBudgetByInviteCode(req, res) {
 }
 
 
-module.exports = { createBudget, getBudgetsForUser, getBudgetById, deleteBudget, joinBudgetByInviteCode };
+module.exports = { createBudget, getBudgetsForCurrentUser, getBudgetById, deleteBudget, joinBudgetByInviteCode };
