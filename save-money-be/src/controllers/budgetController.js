@@ -1,5 +1,5 @@
 const express = require('express');
-const { createBudget, getBudgetsForUser, getBudgetById, deleteBudget, joinBudgetByInviteCode, getBudgetsForCurrentUser } = require('../services/budgetService');
+const { createBudget, getBudgetsForUser, getBudgetById, deleteBudget, joinBudgetByInviteCode, getBudgetsForCurrentUser, getSpendingByUserInBudget } = require('../services/budgetService');
 const { verifySession } = require('../services/authService');
 const budgetRouter = express.Router();
 
@@ -9,6 +9,9 @@ budgetRouter.post('/', createBudget);
 
 // Вземане на бюджети за конкретен потребител
 budgetRouter.get('/', getBudgetsForCurrentUser);
+
+// Смята в конкретен бюджет кой потребител колко е изхарчил
+budgetRouter.get('/:budgetId/spending-by-user', getSpendingByUserInBudget);;
 
 // Вземане на бюджет по ID
 budgetRouter.get('/:budgetId', getBudgetById);
