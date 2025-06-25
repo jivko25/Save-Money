@@ -2,14 +2,75 @@ const supabase = require("../../supabase");
 
 async function getAllReceipts(req, res) {
     try {
-        const { data, error } = await supabase.from('receipts').select('*');
+        // 1. Вземаме ID на текущия потребител от обекта на заявката
+        // ТОВА Е КЛЮЧОВО - Уверете се, че вашето authentication middleware поставя userId тук
+        const userId = req.user.id;
 
-        if (error) return res.status(400).json({ error });
+        if (!userId) {
+            return res.status(401).json({ error: 'Потребителят не е автентикиран.' });
+        }
 
-        res.json(data);
+        // 2. Вземаме всички budget_id, в които потребителят участва
+        const { data: userBudgets, error: userBudgetsError } = await supabase
+            .from('user_budgets')
+            .select('budget_id')
+            .eq('user_id', userId); // Филтрираме по user_id
+
+        if (userBudgetsError) {
+            console.error('Грешка при извличане на бюджети за потребителя:', userBudgetsError);
+            return res.status(500).json({ error: userBudgetsError.message });
+        }
+
+        // Ако потребителят не участва в никакви бюджети, връщаме празен масив
+        if (!userBudgets || userBudgets.length === 0) {
+            return res.json([]);
+        }
+
+        // Извличаме само ID-тата на бюджетите
+        const budgetIds = userBudgets.map(ub => ub.budget_id);
+
+        // 3. Вземаме всички бележки, които принадлежат на тези бюджети,
+        // и правим JOIN с таблицата 'budgets', за да вземем името на бюджета
+        const { data: receiptsData, error: receiptsError } = await supabase
+            .from('receipts')
+            .select(`
+          *,
+          budgets (
+            name
+          )
+        `)
+            .in('budget_id', budgetIds); // Филтрираме бележките по budget_id
+
+        if (receiptsError) {
+            console.error('Грешка при извличане на бележки за бюджети:', receiptsError);
+            return res.status(500).json({ error: receiptsError.message });
+        }
+
+        // 4. Групираме бележките по бюджет за по-лесна обработка във фронтенда
+        // Резултатът ще бъде масив от обекти, където всеки обект е един бюджет
+        // и съдържа масив от неговите бележки.
+        const groupedReceipts = receiptsData.reduce((acc, receipt) => {
+            const budgetId = receipt.budget_id;
+            const budgetName = receipt.budgets ? receipt.budgets.name : 'Неизвестен бюджет'; // Вземаме името на бюджета
+
+            if (!acc[budgetId]) {
+                acc[budgetId] = {
+                    id: budgetId,
+                    name: budgetName,
+                    receipts: [],
+                };
+            }
+            acc[budgetId].receipts.push(receipt);
+            return acc;
+        }, {});
+
+        // Преобразуваме обекта в масив от бюджети за по-лесна итерация във фронтенда
+        const result = Object.values(groupedReceipts);
+
+        res.json(result); // Връщаме групираните данни
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Server error.' });
+        console.error('Грешка в getAllReceipts:', err);
+        res.status(500).json({ error: 'Вътрешна сървърна грешка.' });
     }
 }
 
