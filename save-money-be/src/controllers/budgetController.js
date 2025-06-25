@@ -1,11 +1,14 @@
 const express = require('express');
-const { createBudget, getBudgetsForUser, getBudgetById, deleteBudget, joinBudgetByInviteCode } = require('../services/budgetService');
+const { createBudget, getBudgetsForUser, getBudgetById, deleteBudget, joinBudgetByInviteCode, getBudgetsForCurrentUser } = require('../services/budgetService');
+const { verifySession } = require('../services/authService');
 const budgetRouter = express.Router();
 
 budgetRouter.post('/', createBudget);
 
-// Вземане на бюджети за конкретен потребител (userId в params)
-budgetRouter.get('/user/:userId', getBudgetsForUser);
+budgetRouter.use(verifySession);
+
+// Вземане на бюджети за конкретен потребител
+budgetRouter.get('/', getBudgetsForCurrentUser);
 
 // Вземане на бюджет по ID
 budgetRouter.get('/:budgetId', getBudgetById);
