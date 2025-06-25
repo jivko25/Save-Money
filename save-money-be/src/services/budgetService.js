@@ -96,9 +96,8 @@ async function deleteBudget(req, res) {
 
 async function joinBudgetByInviteCode(req, res) {
     const userId = req.user?.id;
-    const userDisplayName = req.user?.display_name || 'Неизвестен потребител';
 
-    const { invite_code } = req.body;
+    const { invite_code, display_name } = req.body;
 
     if (!userId || !invite_code) {
         return res.status(400).json({ error: 'Missing userId or invite_code' });
@@ -135,7 +134,7 @@ async function joinBudgetByInviteCode(req, res) {
             user_id: userId,
             budget_id: budget.id,
             role: "member",
-            display_name: userDisplayName
+            display_name
         });
 
     if (joinError) {
