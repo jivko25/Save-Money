@@ -3,9 +3,9 @@ const { createBudget, getBudgetsForUser, getBudgetById, deleteBudget, joinBudget
 const { verifySession } = require('../services/authService');
 const budgetRouter = express.Router();
 
-budgetRouter.post('/', createBudget);
-
 budgetRouter.use(verifySession);
+
+budgetRouter.post('/', createBudget);
 
 // Вземане на бюджети за конкретен потребител
 budgetRouter.get('/', getBudgetsForCurrentUser);
