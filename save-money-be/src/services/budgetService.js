@@ -3,7 +3,7 @@ const { generateInviteCode } = require('../utils/generateId');
 
 async function createBudget(req, res) {
     const userId = req.user?.id;
-    const { name } = req.body;
+    const { name, description } = req.body;
 
     if (!name || !userId) {
         return res.status(400).json({ error: 'Missing name or userId' });
@@ -14,7 +14,7 @@ async function createBudget(req, res) {
     // 1. Създай бюджета
     const { data: budget, error: budgetError } = await supabase
         .from('budgets')
-        .insert([{ name, created_by: userId, invite_code }])
+        .insert([{ name, created_by: userId, invite_code, description }])
         .select()
         .single();
 
