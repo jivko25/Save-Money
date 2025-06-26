@@ -3,7 +3,7 @@ const { generateInviteCode } = require('../utils/generateId');
 
 async function createBudget(req, res) {
     const userId = req.user?.id;
-    const { name, description } = req.body;
+    const { name, description, displayName } = req.body;
 
     if (!name || !userId) {
         return res.status(400).json({ error: 'Missing name or userId' });
@@ -25,7 +25,7 @@ async function createBudget(req, res) {
     // 2. Добави създателя в user_budgets като owner
     const { error: userBudgetError } = await supabase
         .from('user_budgets')
-        .insert([{ user_id: userId, budget_id: budget.id, role: 'owner' }]);
+        .insert([{ user_id: userId, budget_id: budget.id, role: 'owner', display_name: displayName }]);
 
     if (userBudgetError) {
         return res.status(500).json({ error: userBudgetError.message });
@@ -217,7 +217,7 @@ async function getSpendingByUserInBudget(req, res) {
                     userId: userId,
                     totalSpending: 0,
                     // <--- Взимаме display_name от map-а на членовете
-                    userName: memberDisplayNames[userId] || 'Неизвестен потребител' 
+                    userName: memberDisplayNames[userId] || 'Неизвестен потребител'
                 };
             }
             acc[userId].totalSpending += amount;
