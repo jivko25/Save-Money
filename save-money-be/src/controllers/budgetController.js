@@ -22,4 +22,7 @@ budgetRouter.delete('/:budgetId', deleteBudget);
 // Присъединяване към бюджет по invite code
 budgetRouter.post('/join', joinBudgetByInviteCode);
 
+// Напускане на бюджет от потребител
+budgetRouter.delete('/:budgetId/leave', leaveBudget); // <-- нов маршрут
+
 module.exports = budgetRouter;

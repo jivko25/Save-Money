@@ -234,5 +234,47 @@ async function getSpendingByUserInBudget(req, res) {
     }
 }
 
+async function leaveBudget(req, res) {
+    const userId = req.user?.id;
+    const budgetId = req.params.budgetId;
 
-module.exports = { createBudget, getBudgetsForCurrentUser, getBudgetById, deleteBudget, joinBudgetByInviteCode, getSpendingByUserInBudget };
+    if (!userId || !budgetId) {
+        return res.status(400).json({ error: 'Missing userId or budgetId' });
+    }
+
+    // Проверка дали потребителят е член на бюджета
+    const { data: membership, error: membershipError } = await supabase
+        .from('user_budgets')
+        .select('role')
+        .eq('user_id', userId)
+        .eq('budget_id', budgetId)
+        .maybeSingle();
+
+    if (membershipError) {
+        return res.status(500).json({ error: 'Грешка при проверка на членство' });
+    }
+
+    if (!membership) {
+        return res.status(404).json({ error: 'Потребителят не е член на бюджета' });
+    }
+
+    if (membership.role === 'owner') {
+        return res.status(403).json({ error: 'Създателят не може да напусне бюджета. Изтрий го или прехвърли собствеността.' });
+    }
+
+    // Изтриване от user_budgets
+    const { error: deleteError } = await supabase
+        .from('user_budgets')
+        .delete()
+        .eq('user_id', userId)
+        .eq('budget_id', budgetId);
+
+    if (deleteError) {
+        return res.status(500).json({ error: 'Грешка при напускане на бюджета' });
+    }
+
+    return res.status(200).json({ message: 'Успешно напуснахте бюджета' });
+}
+
+
+module.exports = { createBudget, getBudgetsForCurrentUser, getBudgetById, deleteBudget, joinBudgetByInviteCode, getSpendingByUserInBudget, leaveBudget };
