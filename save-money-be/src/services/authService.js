@@ -70,8 +70,61 @@ async function verifySession(req, res, next) {
     }
 }
 
+async function getMe(req, res) {
+    const refreshToken = req.headers.authorization?.replace('Bearer ', '');
+
+    if (!refreshToken) {
+      return res.status(400).json({ error: 'Refresh token is missing.' });
+    }
+  
+    try {
+      // Създаваме currentSession обект с refresh_token
+      const currentSession = {
+        refresh_token: refreshToken,
+      };
+  
+      // Извикваме refreshSession от supabase.auth
+      const { data, error } = await supabase.auth.refreshSession(currentSession);
+  
+      if (error) {
+        return res.status(401).json({ error: error.message });
+      }
+  
+      if (!data.session) {
+        return res.status(401).json({ error: 'Failed to refresh session.' });
+      }
+  
+      const user = data.session.user;
+  
+      // Вземаме допълнителни потребителски данни, примерно от таблицата profiles
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+  
+      if (profileError) {
+        console.warn('Error fetching profile:', profileError.message);
+      }
+  
+      return res.status(200).json({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+        user: {
+          id: user.id,
+          email: user.email,
+          display_name: profile?.display_name || null,
+        },
+      });
+    } catch (err) {
+      console.error('Refresh error:', err);
+      return res.status(500).json({ error: 'Server error during session refresh.' });
+    }
+}
+
 module.exports = {
     register,
     login,
-    verifySession
+    verifySession,
+    getMe
 };
