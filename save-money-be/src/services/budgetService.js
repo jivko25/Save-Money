@@ -101,9 +101,11 @@ async function getBudgetSummary(req, res) {
   
     // Вземаме бележките, включително дата
     const { data: receipts, error: receiptsError } = await supabase
-      .from('receipts')
-      .select('id, amount, scanned_by, created_at')
-      .eq('budget_id', budgetId);
+    .from('receipts')
+    .select('id, amount, scanned_by, date, time')
+    .eq('budget_id', budgetId)
+    .order('date', { ascending: false })
+    .order('time', { ascending: false });
   
     if (receiptsError) {
       return res.status(500).json({ error: 'Грешка при извличане на бележки' });
@@ -117,9 +119,7 @@ async function getBudgetSummary(req, res) {
         scanned_by: r.scanned_by,
         displayName: nameMap[r.scanned_by] || 'Неизвестен',
         created_at: r.created_at,
-      }))
-      // Сортираме по най-нови
-      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      }));
   
     // Групиране на разходите по потребител
     const resultMap = {};
