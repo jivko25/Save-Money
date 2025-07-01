@@ -11,7 +11,7 @@ const PORT = 3000;
 app.use(cors()); // позволява заявки от различни домейни (например от телефона)
 app.use(bodyParser.json()); // за да може да чете JSON от тялото на заявката
 
-app.use('/api/scan', receiptsRouter);
+app.use('/api/receipt', receiptsRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/budget', budgetRouter);
 

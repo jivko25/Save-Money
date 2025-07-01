@@ -143,9 +143,44 @@ async function postReceipt(req, res) {
     }
 }
 
+async function getLatestReceiptsForProfile(req, res) {
+    const userId = req.user?.id;
+    const { date } = req.query;
+
+
+    if (!userId) {
+        return res.status(401).json({ error: 'Неавторизиран достъп' });
+    }
+
+    // Започваме заявката
+    let query = supabase
+        .from("receipts")
+        .select("*")
+        .eq("scanned_by", userId);
+
+    // Ако има подаден date, добавяме филтър по дата
+    if (date) {
+        query = query.eq("date", date);
+    }
+
+    // Добавяме сортиране и лимит
+    const { data, error } = await query
+        .order("date", { ascending: false })
+        .order("time", { ascending: false })
+        .limit(3);
+
+    if (error) {
+        return res.status(500).json({ error: error.message });
+    }
+
+    return res.json({ receipts: data });
+}
+
+
 module.exports = {
     getAllReceipts,
     getSingleReceipt,
     postReceipt,
-    getReceiptsByBudgetId
+    getReceiptsByBudgetId,
+    getLatestReceiptsForProfile
 }
