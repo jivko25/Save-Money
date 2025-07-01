@@ -118,7 +118,7 @@ async function getSingleReceipt(req, res) {
 }
 
 async function postReceipt(req, res) {
-    const { raw_code, budget_id, scanned_by } = req.body;
+    const { raw_code, budget_id, scanned_by, store_id } = req.body;
 
     try {
         const [receiptNumber, _, date, time, amountStr] = raw_code.split('*');
@@ -131,6 +131,7 @@ async function postReceipt(req, res) {
             time,
             amount,
             raw_code,
+            store_id
         });
 
         if (error) return res.status(400).json({ error });
