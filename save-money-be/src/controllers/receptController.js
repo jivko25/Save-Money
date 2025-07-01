@@ -1,5 +1,5 @@
 const express = require('express');
-const { getAllReceipts, getSingleReceipt, postReceipt, getReceiptsByBudgetId } = require('../services/receptServices');
+const { getAllReceipts, getSingleReceipt, postReceipt, getReceiptsByBudgetId, getLatestReceiptsForProfile } = require('../services/receptServices');
 const { verifySession } = require('../services/authService');
 const receiptsRouter = express.Router();
 
@@ -7,6 +7,9 @@ receiptsRouter.use(verifySession);
 
 // Вземане на всички записи
 receiptsRouter.get('/', getAllReceipts);
+
+// Взимане на последните записи
+receiptsRouter.get('/latest', getLatestReceiptsForProfile);
 
 // Взимане на всички записи по budget id
 receiptsRouter.get('/:budgetId', getReceiptsByBudgetId);
@@ -16,5 +19,6 @@ receiptsRouter.get('/:id', getSingleReceipt);
 
 // Добавяне на нов запис
 receiptsRouter.post('/', postReceipt);
+
 
 module.exports = receiptsRouter;
