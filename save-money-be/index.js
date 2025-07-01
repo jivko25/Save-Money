@@ -4,6 +4,7 @@ const bodyParser = require('body-parser');
 const receiptsRouter = require('./src/controllers/receptController');
 const authRouter = require('./src/controllers/authController');
 const budgetRouter = require('./src/controllers/budgetController');
+const { storeController } = require('./src/controllers/storeController');
 
 const app = express();
 const PORT = 3000;
@@ -14,6 +15,7 @@ app.use(bodyParser.json()); // за да може да чете JSON от тял
 app.use('/api/receipt', receiptsRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/budget', budgetRouter);
+app.use('/api/store', storeController);
 
 app.listen(PORT, () => {
   console.log(`Сървърът работи на http://localhost:${PORT}`);
