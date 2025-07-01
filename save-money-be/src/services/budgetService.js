@@ -59,92 +59,96 @@ async function getBudgetsForCurrentUser(req, res) {
 async function getBudgetSummary(req, res) {
     const userId = req.user?.id;
     const { budgetId } = req.params;
-  
+    const { search = '', min, max } = req.query;
+
     if (!userId) {
-      return res.status(401).json({ error: 'Неавторизиран' });
+        return res.status(401).json({ error: 'Неавторизиран' });
     }
-  
+
     if (!budgetId) {
-      return res.status(400).json({ error: 'Липсва budgetId' });
+        return res.status(400).json({ error: 'Липсва budgetId' });
     }
-  
-    // Проверка за членство
+
     const { data: membership, error: membershipErr } = await supabase
-      .from('user_budgets')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('budget_id', budgetId)
-      .maybeSingle();
-  
+        .from('user_budgets')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('budget_id', budgetId)
+        .maybeSingle();
+
     if (membershipErr) {
-      return res.status(500).json({ error: 'Грешка при проверка на членство' });
+        return res.status(500).json({ error: 'Грешка при проверка на членство' });
     }
-  
+
     if (!membership) {
-      return res.status(403).json({ error: 'Нямате достъп до този бюджет' });
+        return res.status(403).json({ error: 'Нямате достъп до този бюджет' });
     }
-  
-    // Вземаме всички членове
+
     const { data: members, error: membersError } = await supabase
-      .from('user_budgets')
-      .select('user_id, display_name')
-      .eq('budget_id', budgetId);
-  
+        .from('user_budgets')
+        .select('user_id, display_name')
+        .eq('budget_id', budgetId);
+
     if (membersError) {
-      return res.status(500).json({ error: 'Грешка при извличане на членове' });
+        return res.status(500).json({ error: 'Грешка при извличане на членове' });
     }
-  
+
     const nameMap = {};
     members.forEach((m) => {
-      nameMap[m.user_id] = m.display_name || 'Неизвестен';
+        nameMap[m.user_id] = m.display_name || 'Неизвестен';
     });
-  
-    // Вземаме бележките, включително дата
+
+    // Вземаме бележките
     const { data: receipts, error: receiptsError } = await supabase
-    .from('receipts')
-    .select('id, amount, scanned_by, date, time')
-    .eq('budget_id', budgetId)
-    .order('date', { ascending: false })
-    .order('time', { ascending: false });
-  
+        .from('receipts')
+        .select('id, amount, scanned_by, date, time, created_at')
+        .eq('budget_id', budgetId)
+        .order('date', { ascending: false })
+        .order('time', { ascending: false });
+
     if (receiptsError) {
-      return res.status(500).json({ error: 'Грешка при извличане на бележки' });
+        return res.status(500).json({ error: 'Грешка при извличане на бележки' });
     }
-  
-    // Добавяме displayName към всяка бележка
+
+    // Обогатяване с име и филтриране
     const enrichedReceipts = receipts
-      .map((r) => ({
-        id: r.id,
-        amount: parseFloat(r.amount),
-        scanned_by: r.scanned_by,
-        displayName: nameMap[r.scanned_by] || 'Неизвестен',
-        created_at: r.created_at,
-      }));
-  
+        .map((r) => ({
+            id: r.id,
+            amount: parseFloat(r.amount),
+            scanned_by: r.scanned_by,
+            displayName: nameMap[r.scanned_by] || 'Неизвестен',
+            created_at: r.created_at,
+        }))
+        .filter((r) => {
+            const matchesName = r.displayName.toLowerCase().includes(search.toLowerCase());
+            const matchesMin = isNaN(parseFloat(min)) || r.amount >= parseFloat(min);
+            const matchesMax = isNaN(parseFloat(max)) || r.amount <= parseFloat(max);
+            return matchesName && matchesMin && matchesMax;
+        });
+
     // Групиране на разходите по потребител
     const resultMap = {};
-  
     enrichedReceipts.forEach((r) => {
-      const uid = r.scanned_by;
-      if (!resultMap[uid]) {
-        resultMap[uid] = {
-          userId: uid,
-          displayName: nameMap[uid] || 'Неизвестен',
-          total: 0,
-        };
-      }
-      resultMap[uid].total += isNaN(r.amount) ? 0 : r.amount;
+        const uid = r.scanned_by;
+        if (!resultMap[uid]) {
+            resultMap[uid] = {
+                userId: uid,
+                displayName: nameMap[uid] || 'Неизвестен',
+                total: 0,
+            };
+        }
+        resultMap[uid].total += isNaN(r.amount) ? 0 : r.amount;
     });
-  
+
     const summary = Object.values(resultMap);
     const totalSpent = summary.reduce((acc, u) => acc + u.total, 0);
-  
+
     return res.json({
-      users: summary,
-      totalSpent,
-      receipts: enrichedReceipts,
+        users: summary,
+        totalSpent,
+        receipts: enrichedReceipts,
     });
-  }
+}
 
 async function getBudgetById(req, res) {
     const budgetId = req.params.budgetId;
