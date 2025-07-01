@@ -50,10 +50,50 @@ async function getBudgetsForCurrentUser(req, res) {
         return res.status(500).json({ error: error.message });
     }
 
-    const budgets = data.map(item => item.budgets);
+    const budgets = [];
+
+    for (const item of data) {
+        const budget = item.budgets;
+
+        // Вземи касови бележки
+        const { data: receipts, error: receiptsError } = await supabase
+            .from("receipts")
+            .select("amount, created_at")
+            .eq("budget_id", budget.id);
+
+        if (receiptsError) {
+            return res.status(500).json({ error: receiptsError.message });
+        }
+
+        // Изчисли тотал и последна дата
+        const totalAmount = receipts.reduce((sum, r) => sum + (r.amount || 0), 0);
+        const lastReceiptDate = receipts.reduce((latest, r) => {
+            const date = new Date(r.created_at);
+            return date > latest ? date : latest;
+        }, new Date(0));
+
+        // Вземи броя на потребителите в този бюджет
+        const { count: userCount, error: userCountError } = await supabase
+            .from("user_budgets")
+            .select("*", { count: "exact", head: true }) // само брой
+            .eq("budget_id", budget.id);
+
+        if (userCountError) {
+            return res.status(500).json({ error: userCountError.message });
+        }
+
+        budgets.push({
+            ...budget,
+            totalAmount,
+            lastReceiptDate: receipts.length > 0 ? lastReceiptDate.toISOString() : null,
+            userCount
+        });
+    }
 
     return res.json({ budgets });
 }
+
+
 
 // /api/budget/:budgetId/summary
 async function getBudgetSummary(req, res) {
