@@ -4,7 +4,14 @@ async function getAllStores(req, res) {
     try {
         const { data, error } = await supabase
             .from('stores')
-            .select('id, name, logo')
+            .select(`
+                id, 
+                name, 
+                logo,
+                store_categories (
+                    name
+                )
+            `)
             .order('name', { ascending: true });
 
         if (error) {
@@ -18,6 +25,7 @@ async function getAllStores(req, res) {
         res.status(500).json({ error: 'Вътрешна сървърна грешка' });
     }
 }
+
 
 module.exports = {
     getAllStores
