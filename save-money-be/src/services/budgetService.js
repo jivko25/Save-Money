@@ -158,6 +158,7 @@ async function getBudgetSummary(req, res) {
             scanned_by: r.scanned_by,
             displayName: nameMap[r.scanned_by] || 'Неизвестен',
             created_at: r.created_at,
+            date: r.date
         }))
         .filter((r) => {
             const matchesName = r.displayName.toLowerCase().includes(search.toLowerCase());
