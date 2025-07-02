@@ -3,7 +3,7 @@ const { generateInviteCode } = require('../utils/generateId');
 
 async function createBudget(req, res) {
     const userId = req.user?.id;
-    const { name, description, displayName } = req.body;
+    const { name, description, displayName, dailyLimit } = req.body;
 
     if (!name || !userId) {
         return res.status(400).json({ error: 'Missing name or userId' });
@@ -14,7 +14,7 @@ async function createBudget(req, res) {
     // 1. Създай бюджета
     const { data: budget, error: budgetError } = await supabase
         .from('budgets')
-        .insert([{ name, created_by: userId, invite_code, description }])
+        .insert([{ name, created_by: userId, invite_code, description, daily_limit: dailyLimit }])
         .select()
         .single();
 
@@ -37,7 +37,7 @@ async function createBudget(req, res) {
 async function updateBudget(req, res) {
     const userId = req.user?.id;
     const { budgetId } = req.params;
-    const { name, description, displayName } = req.body;
+    const { name, description, displayName, dailyLimit } = req.body;
 
     if (!budgetId || !userId) {
         return res.status(400).json({ error: 'Missing budgetId or userId' });
@@ -46,7 +46,7 @@ async function updateBudget(req, res) {
     // 1. Обнови самия бюджет
     const { error: budgetError } = await supabase
         .from('budgets')
-        .update({ name, description })
+        .update({ name, description, daily_limit: dailyLimit })
         .eq('id', budgetId)
         .eq('created_by', userId); // само създателят може да редактира
 
