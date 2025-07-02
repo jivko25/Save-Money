@@ -36,7 +36,8 @@ async function getAllReceipts(req, res) {
             .select(`
           *,
           budgets (
-            name
+            name,
+            daily_limit
           )
         `)
             .in('budget_id', budgetIds); // Филтрираме бележките по budget_id
@@ -52,11 +53,13 @@ async function getAllReceipts(req, res) {
         const groupedReceipts = receiptsData.reduce((acc, receipt) => {
             const budgetId = receipt.budget_id;
             const budgetName = receipt.budgets ? receipt.budgets.name : 'Неизвестен бюджет'; // Вземаме името на бюджета
+            const budgetDailyLimit = receipt.budgets.daily_limit
 
             if (!acc[budgetId]) {
                 acc[budgetId] = {
                     id: budgetId,
                     name: budgetName,
+                    budgetDailyLimit,
                     receipts: [],
                 };
             }
