@@ -136,7 +136,7 @@ async function logout(req, res) {
     }
 
     // Изтриваме всички push токени на този потребител (или конкретен токен, ако подадеш)
-    deletePushTokenFunction(userId)
+    await deletePushTokenFunction(userId)
 
     // Също така може да изтриеш сесията в supabase (ако искаш да направиш пълно логаут)
     await supabase.auth.signOut();
