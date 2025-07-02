@@ -123,7 +123,8 @@ async function getBudgetsForCurrentUser(req, res) {
             totalAmount,
             lastReceiptDate: receipts.length > 0 ? lastReceiptDate.toISOString() : null,
             userCount,
-            role: item.role
+            role: item.role,
+            displayName: item.display_name,
         });
     }
 
