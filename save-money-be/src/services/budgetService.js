@@ -79,7 +79,7 @@ async function getBudgetsForCurrentUser(req, res) {
 
     const { data, error } = await supabase
         .from("user_budgets")
-        .select("budget_id, role, budgets(*)")
+        .select("budget_id, role, display_name, budgets(*)")
         .eq("user_id", userId);
 
     if (error) {
