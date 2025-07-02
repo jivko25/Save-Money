@@ -1,5 +1,5 @@
 const express = require('express');
-const { createBudget, getBudgetsForUser, getBudgetById, deleteBudget, joinBudgetByInviteCode, getBudgetsForCurrentUser, getSpendingByUserInBudget, leaveBudget, getBudgetSummary } = require('../services/budgetService');
+const { createBudget, getBudgetsForUser, getBudgetById, deleteBudget, joinBudgetByInviteCode, getBudgetsForCurrentUser, getSpendingByUserInBudget, leaveBudget, getBudgetSummary, updateBudget } = require('../services/budgetService');
 const { verifySession } = require('../services/authService');
 const budgetRouter = express.Router();
 
