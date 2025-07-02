@@ -34,6 +34,42 @@ async function createBudget(req, res) {
     return res.status(201).json({ budget });
 }
 
+async function updateBudget(req, res) {
+    const userId = req.user?.id;
+    const { budgetId } = req.params;
+    const { name, description, displayName } = req.body;
+
+    if (!budgetId || !userId) {
+        return res.status(400).json({ error: 'Missing budgetId or userId' });
+    }
+
+    // 1. Обнови самия бюджет
+    const { error: budgetError } = await supabase
+        .from('budgets')
+        .update({ name, description })
+        .eq('id', budgetId)
+        .eq('created_by', userId); // само създателят може да редактира
+
+    if (budgetError) {
+        return res.status(500).json({ error: budgetError.message });
+    }
+
+    // 2. Ако има подадено displayName, обнови го в user_budgets
+    if (displayName) {
+        const { error: userBudgetError } = await supabase
+            .from('user_budgets')
+            .update({ display_name: displayName })
+            .eq('user_id', userId)
+            .eq('budget_id', budgetId);
+
+        if (userBudgetError) {
+            return res.status(500).json({ error: userBudgetError.message });
+        }
+    }
+
+    return res.status(200).json({ message: 'Бюджетът е обновен успешно.' });
+}
+
 async function getBudgetsForCurrentUser(req, res) {
     const userId = req.user?.id;
 
@@ -43,7 +79,7 @@ async function getBudgetsForCurrentUser(req, res) {
 
     const { data, error } = await supabase
         .from("user_budgets")
-        .select("budget_id, budgets(*)")
+        .select("budget_id, role, budgets(*)")
         .eq("user_id", userId);
 
     if (error) {
@@ -93,9 +129,6 @@ async function getBudgetsForCurrentUser(req, res) {
     return res.json({ budgets });
 }
 
-
-
-// /api/budget/:budgetId/summary
 async function getBudgetSummary(req, res) {
     const userId = req.user?.id;
     const { budgetId } = req.params;
@@ -413,4 +446,4 @@ async function leaveBudget(req, res) {
 }
 
 
-module.exports = { createBudget, getBudgetsForCurrentUser, getBudgetById, deleteBudget, joinBudgetByInviteCode, getSpendingByUserInBudget, leaveBudget, getBudgetSummary };
+module.exports = { createBudget, getBudgetsForCurrentUser, getBudgetById, deleteBudget, joinBudgetByInviteCode, getSpendingByUserInBudget, leaveBudget, getBudgetSummary, updateBudget };

@@ -7,6 +7,8 @@ budgetRouter.use(verifySession);
 
 budgetRouter.post('/', createBudget);
 
+budgetRouter.patch('/:budgetId', updateBudget);
+
 // Вземане на бюджети за конкретен потребител
 budgetRouter.get('/', getBudgetsForCurrentUser);
 
