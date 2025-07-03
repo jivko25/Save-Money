@@ -248,22 +248,30 @@ async function getBudgetById(req, res) {
 
 async function deleteBudget(req, res) {
     const budgetId = req.params.budgetId;
-
+  
     if (!budgetId) {
-        return res.status(400).json({ error: 'Missing budgetId' });
+      return res.status(400).json({ error: 'Missing budgetId' });
     }
-
-    const { error } = await supabase
-        .from("budgets")
-        .delete()
-        .eq("id", budgetId);
-
-    if (error) {
-        return res.status(500).json({ error: error.message });
+  
+    try {
+      // Изтриваме първо receipts свързани към бюджета
+      let { error } = await supabase.from('receipts').delete().eq('budget_id', budgetId);
+      if (error) throw error;
+  
+      // Изтриваме user_budgets свързани към бюджета
+      ({ error } = await supabase.from('user_budgets').delete().eq('budget_id', budgetId));
+      if (error) throw error;
+  
+      // Накрая изтриваме бюджета
+      ({ error } = await supabase.from('budgets').delete().eq('id', budgetId));
+      if (error) throw error;
+  
+      return res.status(204).send();
+    } catch (error) {
+      return res.status(500).json({ error: error.message });
     }
-
-    return res.status(204).send();
-}
+  }
+  
 
 async function joinBudgetByInviteCode(req, res) {
     const userId = req.user?.id;
