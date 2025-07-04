@@ -1,4 +1,4 @@
-const Jimp = require('jimp');
+const { Jimp } = require("jimp");
 const QrCode = require('qrcode-reader');
 const supabase = require('../../supabase');
 
@@ -47,6 +47,8 @@ async function createQrCardFromMultipart(req, res) {
         qr.decode(image.bitmap);
 
     } catch (e) {
+        console.log(e);
+        
         res.status(500).json({ error: 'Грешка при обработка на изображението' });
     }
 };
