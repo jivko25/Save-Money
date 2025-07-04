@@ -6,6 +6,7 @@ const authRouter = require('./src/controllers/authController');
 const budgetRouter = require('./src/controllers/budgetController');
 const { storeController } = require('./src/controllers/storeController');
 const { pushTokenRouter } = require('./src/controllers/PushTokenController');
+const { cardsRouter } = require('./src/controllers/cardsController');
 
 const app = express();
 const PORT = 3000;
@@ -18,6 +19,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/budget', budgetRouter);
 app.use('/api/store', storeController);
 app.use('/api/push-token', pushTokenRouter);
+app.use('/api/qr-card', cardsRouter);
 
 app.listen(PORT, () => {
   console.log(`Сървърът работи на http://localhost:${PORT}`);
