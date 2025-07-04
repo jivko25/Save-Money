@@ -1,4 +1,5 @@
 const supabase = require("../../supabase");
+const sendPushNotification = require("../utils/notifyUsersPushToken");
 
 async function getAllReceipts(req, res) {
     try {
@@ -120,7 +121,6 @@ async function getSingleReceipt(req, res) {
     }
 }
 
-const sendPushNotification = require('../services/sendPushNotification'); // <- добави реалния път
 
 async function postReceipt(req, res) {
   const { raw_code, budget_id, scanned_by, store_id } = req.body;
