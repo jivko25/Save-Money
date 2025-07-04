@@ -1,4 +1,3 @@
-const fs = require('fs');
 const Jimp = require('jimp');
 const QrCode = require('qrcode-reader');
 const supabase = require('../../supabase');
@@ -14,12 +13,10 @@ async function createQrCardFromMultipart(req, res) {
     }
 
     try {
-        const image = await Jimp.read(imagePath);
+        const image = await Jimp.read(req.file.buffer);
         const qr = new QrCode();
 
         qr.callback = async (err, value) => {
-            fs.unlinkSync(imagePath);
-
             if (err || !value || !value.result) {
                 return res.status(400).json({ error: 'QR кодът не можа да бъде разчетен' });
             }
@@ -50,7 +47,6 @@ async function createQrCardFromMultipart(req, res) {
         qr.decode(image.bitmap);
 
     } catch (e) {
-        if (fs.existsSync(imagePath)) fs.unlinkSync(imagePath);
         res.status(500).json({ error: 'Грешка при обработка на изображението' });
     }
 };
