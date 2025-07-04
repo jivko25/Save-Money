@@ -6,14 +6,14 @@ const supabase = require('../../supabase');
 async function createQrCardFromMultipart(req, res) {
     const user_id = req.user.id;
     const { name } = req.body;
-    const imagePath = req.file?.path;
+    const imageBuffer = req.file?.buffer;
 
-    if (!name || !imagePath) {
+    if (!name || !imageBuffer) {
         return res.status(400).json({ error: 'Липсва име или изображение' });
     }
 
     try {
-        const image = await Jimp.read(req.file.buffer);
+        const image = await Jimp.read(imageBuffer);
         const qr = new QrCode();
 
         qr.callback = async (err, value) => {
