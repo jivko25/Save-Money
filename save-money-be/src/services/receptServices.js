@@ -123,62 +123,75 @@ async function getSingleReceipt(req, res) {
 
 
 async function postReceipt(req, res) {
-  const { raw_code, budget_id, scanned_by, store_id } = req.body;
-
-  try {
-    const [receiptNumber, _, date, time, amountStr] = raw_code.split('*');
-    const amount = parseFloat(amountStr);
-
-    const { data: receiptData, error: insertError } = await supabase
-      .from('receipts')
-      .insert({
-        budget_id,
-        scanned_by,
-        date,
-        time,
-        amount,
-        raw_code,
-        store_id,
-      })
-      .select()
-      .single();
-
-    if (insertError) return res.status(400).json({ error: insertError });
-
-    // Вземаме всички потребители, свързани с бюджета
-    const { data: users, error: usersError } = await supabase
-      .from('user_budgets')
-      .select('user_id')
-      .eq('budget_id', budget_id);
-
-    if (usersError) console.warn('⚠️ Грешка при вземане на user_budgets:', usersError);
-
-    const userIds = users.map(u => u.user_id).filter(id => id !== scanned_by); // без себе си
-
-    // Вземаме всички push токени на тези потребители
-    const { data: tokensData, error: tokensError } = await supabase
-      .from('user_push_tokens')
-      .select('token')
-      .in('user_id', userIds);
-
-    if (tokensError) console.warn('⚠️ Грешка при вземане на push токени:', tokensError);
-
-    const tokens = tokensData.map(t => t.token);
-
-    if (tokens.length > 0) {
-      await sendPushNotification(
-        tokens,
-        'Нова бележка!',
-        'Добавена е нова покупка в един от твоите бюджети.'
-      );
+    const { raw_code, budget_id, scanned_by, store_id } = req.body;
+  
+    try {
+      const [receiptNumber, _, date, time, amountStr] = raw_code.split('*');
+      const amount = parseFloat(amountStr);
+  
+      const { data: receiptData, error: insertError } = await supabase
+        .from('receipts')
+        .insert({
+          budget_id,
+          scanned_by,
+          date,
+          time,
+          amount,
+          raw_code,
+          store_id,
+        })
+        .select()
+        .single();
+  
+      if (insertError) return res.status(400).json({ error: insertError });
+  
+      // 👉 Вземаме името на бюджета
+      const { data: budgetData, error: budgetError } = await supabase
+        .from('budgets')
+        .select('name')
+        .eq('id', budget_id)
+        .single();
+  
+      const budgetName = budgetData?.name || 'Бюджет';
+  
+      if (budgetError) console.warn('⚠️ Грешка при вземане на име на бюджет:', budgetError);
+  
+      // 👉 Вземаме всички потребители, свързани с бюджета
+      const { data: users, error: usersError } = await supabase
+        .from('user_budgets')
+        .select('user_id')
+        .eq('budget_id', budget_id);
+  
+      if (usersError) console.warn('⚠️ Грешка при вземане на user_budgets:', usersError);
+  
+      const userIds = users.map(u => u.user_id);
+  
+      // 👉 Вземаме push токените им
+      const { data: tokensData, error: tokensError } = await supabase
+        .from('user_push_tokens')
+        .select('token')
+        .in('user_id', userIds);
+  
+      if (tokensError) console.warn('⚠️ Грешка при вземане на push токени:', tokensError);
+  
+      const tokens = tokensData.map(t => t.token);
+  
+      // 👉 Изпращаме push нотификация с име на бюджет и сума
+      if (tokens.length > 0) {
+        await sendPushNotification(
+          tokens,
+          'Нова бележка!',
+          `Добавена е покупка за ${amount.toFixed(2)} лв в бюджета "${budgetName}".`
+        );
+      }
+  
+      res.json({ success: true, data: receiptData });
+    } catch (err) {
+      console.error('❌ Грешка в postReceipt:', err);
+      res.status(500).json({ error: 'Invalid QR format or server error.' });
     }
-
-    res.json({ success: true, data: receiptData });
-  } catch (err) {
-    console.error('❌ Грешка в postReceipt:', err);
-    res.status(500).json({ error: 'Invalid QR format or server error.' });
   }
-}
+  
 
 
 async function getLatestReceiptsForProfile(req, res) {
