@@ -1,7 +1,7 @@
 const { Jimp } = require("jimp");
 const QrCode = require('qrcode-reader');
-import BarcodeReader from 'barcode-reader';
 const supabase = require('../../supabase');
+const javascriptBarcodeReader = require('javascript-barcode-reader');
 
 
 async function createQrCardFromMultipart(req, res) {
@@ -49,7 +49,7 @@ async function createQrCardFromMultipart(req, res) {
 
     } catch (e) {
         console.log(e);
-        
+
         res.status(500).json({ error: 'Грешка при обработка на изображението' });
     }
 };
@@ -58,52 +58,58 @@ async function createBarcodeCard(req, res) {
     const user_id = req.user.id;
     const { name } = req.body;
     const imageBuffer = req.file?.buffer;
-  
+
     if (!name || !imageBuffer) {
-      return res.status(400).json({ error: 'Липсва име или изображение' });
+        return res.status(400).json({ error: 'Липсва име или изображение' });
     }
-  
+
     try {
-      const image = await Jimp.read(imageBuffer);
-  
-      BarcodeReader(image.bitmap, async (err, result) => {
-        if (err) {
-          console.error('Barcode read error:', err);
-          return res.status(400).json({ error: 'Баркодът не можа да бъде разчетен' });
+        // Зареждаме изображението с Jimp, за да го подготвим
+        const image = await Jimp.read(imageBuffer);
+
+        // Конвертираме изображението в Uint8ClampedArray с нужната форма за библиотеката
+        const { data, bitmap } = image;
+        const imageData = {
+            data: new Uint8ClampedArray(data.buffer),
+            width: bitmap.width,
+            height: bitmap.height,
+        };
+
+        // Четем баркода - по подразбиране "auto" формат
+        const barcodeContent = await javascriptBarcodeReader({
+            image: imageData,
+            barcode: 'auto', // или можеш да зададеш конкретен формат, ако знаеш
+        });
+
+        if (!barcodeContent) {
+            return res.status(400).json({ error: 'Не беше намерен валиден баркод' });
         }
-  
-        if (!result) {
-          return res.status(400).json({ error: 'Не беше намерен валиден баркод' });
-        }
-  
-        const barcode_content = result;
-  
+
         // Проверка дали вече съществува
         const { data: existing, error: findErr } = await supabase
-          .from('qr_cards')
-          .select('*')
-          .eq('user_id', user_id)
-          .eq('qr_content', barcode_content)
-          .maybeSingle();
-  
+            .from('qr_cards')
+            .select('*')
+            .eq('user_id', user_id)
+            .eq('qr_content', barcodeContent)
+            .maybeSingle();
+
         if (findErr) return res.status(500).json({ error: findErr.message });
         if (existing) return res.status(409).json({ error: 'Тази карта вече съществува' });
-  
+
         // Запис в базата с тип 'barcode'
-        const { data, error } = await supabase
-          .from('qr_cards')
-          .insert([{ user_id, name, qr_content: barcode_content, type: 'barcode' }])
-          .select();
-  
-        if (error) return res.status(500).json({ error: error.message });
-  
-        res.json(data[0]);
-      });
+        const { data: insertData, error: insertErr } = await supabase
+            .from('qr_cards')
+            .insert([{ user_id, name, qr_content: barcodeContent, type: 'barcode' }])
+            .select();
+
+        if (insertErr) return res.status(500).json({ error: insertErr.message });
+
+        res.json(insertData[0]);
     } catch (e) {
-      console.error(e);
-      res.status(500).json({ error: 'Грешка при обработка на изображението' });
+        console.error('Грешка при обработка на баркода:', e);
+        res.status(500).json({ error: 'Грешка при обработка на изображението' });
     }
-  }
+}
 
 async function getQrCardById(req, res) {
     const user_id = req.user.id;
