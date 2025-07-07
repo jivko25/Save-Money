@@ -488,5 +488,63 @@ async function leaveBudget(req, res) {
     return res.status(200).json({ message: 'Успешно напуснахте бюджета' });
 }
 
+async function getBudgetCategorySummary(req, res) {
+    const userId = req.user?.id;
+    const { budgetId } = req.params;
 
-module.exports = { createBudget, getBudgetsForCurrentUser, getBudgetById, deleteBudget, joinBudgetByInviteCode, getSpendingByUserInBudget, leaveBudget, getBudgetSummary, updateBudget };
+    if (!userId) return res.status(401).json({ error: 'Неавторизиран' });
+    if (!budgetId) return res.status(400).json({ error: 'Липсва budgetId' });
+
+    const { data: membership, error: membershipErr } = await supabase
+        .from('user_budgets')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('budget_id', budgetId)
+        .maybeSingle();
+
+    if (membershipErr) {
+        return res.status(500).json({ error: 'Грешка при проверка на членство' });
+    }
+
+    if (!membership) {
+        return res.status(403).json({ error: 'Нямате достъп до този бюджет' });
+    }
+
+    const { data: receipts, error: receiptsError } = await supabase
+        .from('receipts')
+        .select(`
+        id,
+        amount,
+        stores (
+          category_id,
+          store_categories (
+            id,
+            name
+          )
+        )
+      `)
+        .eq('budget_id', budgetId);
+
+    if (receiptsError) {
+        return res.status(500).json({ error: 'Грешка при извличане на бележки' });
+    }
+
+    const categoryTotals = {};
+
+    for (const receipt of receipts) {
+        const categoryName =
+            receipt.stores?.store_categories?.name || 'Други';
+        const amount = parseFloat(receipt.amount) || 0;
+
+        if (!categoryTotals[categoryName]) {
+            categoryTotals[categoryName] = 0;
+        }
+
+        categoryTotals[categoryName] += amount;
+    }
+
+    const result = Object.ent
+}
+
+
+module.exports = { createBudget, getBudgetsForCurrentUser, getBudgetById, deleteBudget, joinBudgetByInviteCode, getSpendingByUserInBudget, leaveBudget, getBudgetSummary, updateBudget, getBudgetCategorySummary };
