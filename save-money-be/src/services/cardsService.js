@@ -53,6 +53,57 @@ async function createQrCardFromMultipart(req, res) {
     }
 };
 
+async function createBarcodeCard(req, res) {
+    const user_id = req.user.id;
+    const { name } = req.body;
+    const imageBuffer = req.file?.buffer;
+  
+    if (!name || !imageBuffer) {
+      return res.status(400).json({ error: 'Липсва име или изображение' });
+    }
+  
+    try {
+      const image = await Jimp.read(imageBuffer);
+  
+      BarcodeReader(image.bitmap, async (err, result) => {
+        if (err) {
+          console.error('Barcode read error:', err);
+          return res.status(400).json({ error: 'Баркодът не можа да бъде разчетен' });
+        }
+  
+        if (!result) {
+          return res.status(400).json({ error: 'Не беше намерен валиден баркод' });
+        }
+  
+        const barcode_content = result;
+  
+        // Проверка дали вече съществува
+        const { data: existing, error: findErr } = await supabase
+          .from('qr_cards')
+          .select('*')
+          .eq('user_id', user_id)
+          .eq('qr_content', barcode_content)
+          .maybeSingle();
+  
+        if (findErr) return res.status(500).json({ error: findErr.message });
+        if (existing) return res.status(409).json({ error: 'Тази карта вече съществува' });
+  
+        // Запис в базата с тип 'barcode'
+        const { data, error } = await supabase
+          .from('qr_cards')
+          .insert([{ user_id, name, qr_content: barcode_content, type: 'barcode' }])
+          .select();
+  
+        if (error) return res.status(500).json({ error: error.message });
+  
+        res.json(data[0]);
+      });
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: 'Грешка при обработка на изображението' });
+    }
+  }
+
 async function getQrCardById(req, res) {
     const user_id = req.user.id;
     const { id } = req.params;
@@ -115,6 +166,7 @@ async function deleteQrCard(req, res) {
 
 module.exports = {
     createQrCardFromMultipart,
+    createBarcodeCard,
     getQrCardById,
     getAllQrCardsForUser,
     deleteQrCard
