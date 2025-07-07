@@ -66,11 +66,11 @@ async function createBarcodeCard(req, res) {
     try {
         // Зареждаме изображението с Jimp, за да го подготвим
         const image = await Jimp.read(imageBuffer);
-
+        
         // Конвертираме изображението в Uint8ClampedArray с нужната форма за библиотеката
         const { data, bitmap } = image;
         const imageData = {
-            data: new Uint8ClampedArray(data.buffer),
+            data: new Uint8ClampedArray(data?.buffer),
             width: bitmap.width,
             height: bitmap.height,
         };
@@ -78,8 +78,9 @@ async function createBarcodeCard(req, res) {
         // Четем баркода - по подразбиране "auto" формат
         const barcodeContent = await javascriptBarcodeReader({
             image: imageData,
-            barcode: 'auto', // или можеш да зададеш конкретен формат, ако знаеш
+            barcode: 'code-128', // или можеш да зададеш конкретен формат, ако знаеш
         });
+
 
         if (!barcodeContent) {
             return res.status(400).json({ error: 'Не беше намерен валиден баркод' });
