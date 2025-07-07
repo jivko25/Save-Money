@@ -491,28 +491,28 @@ async function leaveBudget(req, res) {
 async function getBudgetCategorySummary(req, res) {
     const userId = req.user?.id;
     const { budgetId } = req.params;
-
+  
     if (!userId) return res.status(401).json({ error: 'Неавторизиран' });
     if (!budgetId) return res.status(400).json({ error: 'Липсва budgetId' });
-
+  
     const { data: membership, error: membershipErr } = await supabase
-        .from('user_budgets')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('budget_id', budgetId)
-        .maybeSingle();
-
+      .from('user_budgets')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('budget_id', budgetId)
+      .maybeSingle();
+  
     if (membershipErr) {
-        return res.status(500).json({ error: 'Грешка при проверка на членство' });
+      return res.status(500).json({ error: 'Грешка при проверка на членство' });
     }
-
+  
     if (!membership) {
-        return res.status(403).json({ error: 'Нямате достъп до този бюджет' });
+      return res.status(403).json({ error: 'Нямате достъп до този бюджет' });
     }
-
+  
     const { data: receipts, error: receiptsError } = await supabase
-        .from('receipts')
-        .select(`
+      .from('receipts')
+      .select(`
         id,
         amount,
         stores (
@@ -523,28 +523,33 @@ async function getBudgetCategorySummary(req, res) {
           )
         )
       `)
-        .eq('budget_id', budgetId);
-
+      .eq('budget_id', budgetId);
+  
     if (receiptsError) {
-        return res.status(500).json({ error: 'Грешка при извличане на бележки' });
+      return res.status(500).json({ error: 'Грешка при извличане на бележки' });
     }
-
+  
     const categoryTotals = {};
-
+  
     for (const receipt of receipts) {
-        const categoryName =
-            receipt.stores?.store_categories?.name || 'Други';
-        const amount = parseFloat(receipt.amount) || 0;
-
-        if (!categoryTotals[categoryName]) {
-            categoryTotals[categoryName] = 0;
-        }
-
-        categoryTotals[categoryName] += amount;
+      const categoryName =
+        receipt.stores?.store_categories?.name || 'Други';
+      const amount = parseFloat(receipt.amount) || 0;
+  
+      if (!categoryTotals[categoryName]) {
+        categoryTotals[categoryName] = 0;
+      }
+  
+      categoryTotals[categoryName] += amount;
     }
-
-    const result = Object.ent
-}
+  
+    const result = Object.entries(categoryTotals).map(([categoryName, total]) => ({
+      categoryName,
+      total: parseFloat(total.toFixed(2)),
+    }));
+  
+    return res.json(result);
+  }  
 
 
 module.exports = { createBudget, getBudgetsForCurrentUser, getBudgetById, deleteBudget, joinBudgetByInviteCode, getSpendingByUserInBudget, leaveBudget, getBudgetSummary, updateBudget, getBudgetCategorySummary };
