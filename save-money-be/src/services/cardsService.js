@@ -1,5 +1,6 @@
 const { Jimp } = require("jimp");
 const QrCode = require('qrcode-reader');
+import BarcodeReader from 'barcode-reader';
 const supabase = require('../../supabase');
 
 
