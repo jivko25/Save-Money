@@ -134,7 +134,7 @@ async function getBudgetsForCurrentUser(req, res) {
 async function getBudgetSummary(req, res) {
     const userId = req.user?.id;
     const { budgetId } = req.params;
-    const { search = '', min, max } = req.query;
+    const { search = '', min, max, startDate, endDate } = req.query;
 
     if (!userId) {
         return res.status(401).json({ error: 'Неавторизиран' });
@@ -176,7 +176,7 @@ async function getBudgetSummary(req, res) {
     // Вземаме бележките
     const { data: receipts, error: receiptsError } = await supabase
         .from('receipts')
-        .select('id, amount, scanned_by, date, time, created_at')
+        .select('*')
         .eq('budget_id', budgetId)
         .order('date', { ascending: false })
         .order('time', { ascending: false });
@@ -199,7 +199,19 @@ async function getBudgetSummary(req, res) {
             const matchesName = r.displayName.toLowerCase().includes(search.toLowerCase());
             const matchesMin = isNaN(parseFloat(min)) || r.amount >= parseFloat(min);
             const matchesMax = isNaN(parseFloat(max)) || r.amount <= parseFloat(max);
-            return matchesName && matchesMin && matchesMax;
+
+            // Филтриране по дата
+            let matchesStartDate = true;
+            let matchesEndDate = true;
+
+            if (startDate) {
+                matchesStartDate = new Date(r.date) >= new Date(startDate);
+            }
+            if (endDate) {
+                matchesEndDate = new Date(r.date) <= new Date(endDate);
+            }
+
+            return matchesName && matchesMin && matchesMax && matchesStartDate && matchesEndDate;
         });
 
     // Групиране на разходите по потребител
@@ -225,6 +237,7 @@ async function getBudgetSummary(req, res) {
         receipts: enrichedReceipts,
     });
 }
+
 
 async function getBudgetById(req, res) {
     const budgetId = req.params.budgetId;
