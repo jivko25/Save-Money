@@ -177,17 +177,22 @@ async function getBudgetSummary(req, res) {
     const { data: receipts, error: receiptsError } = await supabase
         .from('receipts')
         .select(`
-            *,
-            stores (
+        *,
+        stores (
+            id,
+            name,
+            logo,
+            category_id,
+            store_categories (
                 id,
-                name,
-                logo,
-                category_id
+                name
             )
-        `)
+        )
+    `)
         .eq('budget_id', budgetId)
         .order('date', { ascending: false })
         .order('time', { ascending: false });
+
 
     if (receiptsError) {
         return res.status(500).json({ error: 'Грешка при извличане на бележки' });
@@ -207,6 +212,7 @@ async function getBudgetSummary(req, res) {
                 name: r.stores.name,
                 logo: r.stores.logo,
                 category_id: r.stores.category_id,
+                categoryName: r.stores.store_categories ? r.stores.store_categories.name : null,
             } : null,
         }))
         .filter((r) => {
@@ -275,30 +281,30 @@ async function getBudgetById(req, res) {
 
 async function deleteBudget(req, res) {
     const budgetId = req.params.budgetId;
-  
+
     if (!budgetId) {
-      return res.status(400).json({ error: 'Missing budgetId' });
+        return res.status(400).json({ error: 'Missing budgetId' });
     }
-  
+
     try {
-      // Изтриваме първо receipts свързани към бюджета
-      let { error } = await supabase.from('receipts').delete().eq('budget_id', budgetId);
-      if (error) throw error;
-  
-      // Изтриваме user_budgets свързани към бюджета
-      ({ error } = await supabase.from('user_budgets').delete().eq('budget_id', budgetId));
-      if (error) throw error;
-  
-      // Накрая изтриваме бюджета
-      ({ error } = await supabase.from('budgets').delete().eq('id', budgetId));
-      if (error) throw error;
-  
-      return res.status(204).send();
+        // Изтриваме първо receipts свързани към бюджета
+        let { error } = await supabase.from('receipts').delete().eq('budget_id', budgetId);
+        if (error) throw error;
+
+        // Изтриваме user_budgets свързани към бюджета
+        ({ error } = await supabase.from('user_budgets').delete().eq('budget_id', budgetId));
+        if (error) throw error;
+
+        // Накрая изтриваме бюджета
+        ({ error } = await supabase.from('budgets').delete().eq('id', budgetId));
+        if (error) throw error;
+
+        return res.status(204).send();
     } catch (error) {
-      return res.status(500).json({ error: error.message });
+        return res.status(500).json({ error: error.message });
     }
-  }
-  
+}
+
 
 async function joinBudgetByInviteCode(req, res) {
     const userId = req.user?.id;
