@@ -173,10 +173,18 @@ async function getBudgetSummary(req, res) {
         nameMap[m.user_id] = m.display_name || 'Неизвестен';
     });
 
-    // Вземаме бележките
+    // Вземаме бележките с информация за магазина (store)
     const { data: receipts, error: receiptsError } = await supabase
         .from('receipts')
-        .select('*')
+        .select(`
+            *,
+            stores (
+                id,
+                name,
+                logo,
+                category_id
+            )
+        `)
         .eq('budget_id', budgetId)
         .order('date', { ascending: false })
         .order('time', { ascending: false });
@@ -185,7 +193,7 @@ async function getBudgetSummary(req, res) {
         return res.status(500).json({ error: 'Грешка при извличане на бележки' });
     }
 
-    // Обогатяване с име и филтриране
+    // Обогатяване с име, магазин и филтриране
     const enrichedReceipts = receipts
         .map((r) => ({
             id: r.id,
@@ -193,7 +201,13 @@ async function getBudgetSummary(req, res) {
             scanned_by: r.scanned_by,
             displayName: nameMap[r.scanned_by] || 'Неизвестен',
             created_at: r.created_at,
-            date: r.date
+            date: r.date,
+            store: r.stores ? {
+                id: r.stores.id,
+                name: r.stores.name,
+                logo: r.stores.logo,
+                category_id: r.stores.category_id,
+            } : null,
         }))
         .filter((r) => {
             const matchesName = r.displayName.toLowerCase().includes(search.toLowerCase());
