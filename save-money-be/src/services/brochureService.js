@@ -132,7 +132,6 @@ function transformKauflandUrl(rawUrl) {
     return rawUrl.replace('/ar/', '/view/flyer/page/1');
 }
 
-
 async function scrapeBrouchuresKaufland(req, res) {
     const url = 'https://www.kaufland.bg/broshuri.html';
     const store = 'Kaufland';
@@ -254,42 +253,90 @@ async function scrapeBrouchuresKaufland(req, res) {
 
 async function archiveExpiredBrochures(req, res) {
     try {
-      const now = new Date().toISOString();
-  
-      // 1. Намираме всички, които са изтекли и още не са архивирани
-      const { data: expired, error } = await supabase
-        .from('brochures')
-        .select('id')
-        .lt('expires_at', now)
-        .eq('archived', false);
-  
-      if (error) throw error;
-  
-      if (!expired || expired.length === 0) {
-        return res.json({ message: 'Няма изтекли брошури за архивиране.' });
-      }
-  
-      const ids = expired.map(b => b.id);
-  
-      // 2. Обновяваме колоната archived на true за намерените записи
-      const { error: updateError } = await supabase
-        .from('brochures')
-        .update({ archived: true })
-        .in('id', ids);
-  
-      if (updateError) throw updateError;
-  
-      return res.json({
-        message: 'Успешно архивирани изтеклите брошури.',
-        count: ids.length,
-        archivedIds: ids,
-      });
-  
+        const now = new Date().toISOString();
+
+        // 1. Намираме всички, които са изтекли и още не са архивирани
+        const { data: expired, error } = await supabase
+            .from('brochures')
+            .select('id')
+            .lt('expires_at', now)
+            .eq('archived', false);
+
+        if (error) throw error;
+
+        if (!expired || expired.length === 0) {
+            return res.json({ message: 'Няма изтекли брошури за архивиране.' });
+        }
+
+        const ids = expired.map(b => b.id);
+
+        // 2. Обновяваме колоната archived на true за намерените записи
+        const { error: updateError } = await supabase
+            .from('brochures')
+            .update({ archived: true })
+            .in('id', ids);
+
+        if (updateError) throw updateError;
+
+        return res.json({
+            message: 'Успешно архивирани изтеклите брошури.',
+            count: ids.length,
+            archivedIds: ids,
+        });
+
     } catch (err) {
-      console.error('Грешка при архивиране:', err.message);
-      return res.status(500).json({ error: 'Грешка при архивиране.', details: err.message });
+        console.error('Грешка при архивиране:', err.message);
+        return res.status(500).json({ error: 'Грешка при архивиране.', details: err.message });
     }
-  }
+}
+
+// Взима всички брошури (без филтър)
+async function getAllBrochures(req, res) {
+    try {
+        const { data, error } = await supabase
+            .from('brochures')
+            .select('*')
+            .order('uploaded_at', { ascending: false });
+
+        if (error) throw error;
+
+        return res.json({ brochures: data });
+    } catch (err) {
+        console.error('❌ Грешка при getAllBrochures:', err.message);
+        return res.status(500).json({ error: 'Грешка при взимане на всички брошури.', details: err.message });
+    }
+}
+
+// Взима брошура по ID
+async function getBrochureById(req, res) {
+    const { id } = req.params;
+
+    try {
+        const { data, error } = await supabase
+            .from('brochures')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (error) {
+            if (error.code === 'PGRST116') { // не е намерен запис
+                return res.status(404).json({ error: 'Брошурата не е намерена.' });
+            }
+            throw error;
+        }
+
+        return res.json({ brochure: data });
+    } catch (err) {
+        console.error('❌ Грешка при getBrochureById:', err.message);
+        return res.status(500).json({ error: 'Грешка при взимане на брошурата.', details: err.message });
+    }
+}
+
+module.exports = {
+    getAllBrochures,
+    getBrochureById,
+};
 
 
-module.exports = { scrapeBrouchuresLidl, scrapeBrouchuresKaufland, archiveExpiredBrochures };
+
+module.exports = { scrapeBrouchuresLidl, scrapeBrouchuresKaufland, archiveExpiredBrochures, getBrochureById, getAllBrochures };
