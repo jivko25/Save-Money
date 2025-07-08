@@ -290,20 +290,33 @@ async function archiveExpiredBrochures(req, res) {
     }
 }
 
-// Взима всички брошури (без филтър)
 async function getAllBrochures(req, res) {
     try {
-        const { data, error } = await supabase
+        const { store, archived } = req.query;
+
+        let query = supabase
             .from('brochures')
             .select('*')
             .order('uploaded_at', { ascending: false });
+
+        // По подразбиране скрива архивираните
+        if (archived !== 'true') {
+            query = query.eq('archived', false);
+        }
+
+        // Филтър по магазин (по частично съвпадение, case-insensitive)
+        if (store) {
+            query = query.ilike('store_name', `%${store}%`);
+        }
+
+        const { data, error } = await query;
 
         if (error) throw error;
 
         return res.json({ brochures: data });
     } catch (err) {
         console.error('❌ Грешка при getAllBrochures:', err.message);
-        return res.status(500).json({ error: 'Грешка при взимане на всички брошури.', details: err.message });
+        return res.status(500).json({ error: 'Грешка при взимане на брошурите.', details: err.message });
     }
 }
 
