@@ -26,7 +26,6 @@ async function scrapeBrouchuresLidl(req, res) {
         );
 
         const uniqueFlyers = [...new Set(flyerLinks)];
-        console.log(`🔎 Намерени брошури: ${uniqueFlyers.length}`);
 
         const results = [];
 
@@ -41,7 +40,6 @@ async function scrapeBrouchuresLidl(req, res) {
             const menuUrl = `https://www.lidl.bg/l/bg/broshura/${datePart}/view/menu/page/1`;
 
             const brochurePage = await browser.newPage();
-            console.log('🧭 Навигираме към:', menuUrl);
 
             try {
                 await brochurePage.goto(menuUrl, { waitUntil: 'networkidle2', timeout: 60000 });
@@ -65,7 +63,6 @@ async function scrapeBrouchuresLidl(req, res) {
 
                 if (checkError) throw checkError;
                 if (existing) {
-                    console.log('🔁 Пропусната (вече в базата):', pdfUrl);
                     await brochurePage.close();
                     continue;
                 }
@@ -84,7 +81,6 @@ async function scrapeBrouchuresLidl(req, res) {
 
                 if (uploadError) {
                     if (uploadError.message.includes('The resource already exists')) {
-                        console.log('📦 Вече съществува:', fileName);
                         await brochurePage.close();
                         continue;
                     }
@@ -158,7 +154,6 @@ async function scrapeBrouchuresKaufland(req, res) {
         );
 
         const uniqueUrls = [...new Set(rawUrls)];
-        console.log(`🔎 Намерени брошури: ${uniqueUrls.length}`);
 
         const results = [];
 
@@ -171,12 +166,10 @@ async function scrapeBrouchuresKaufland(req, res) {
 
             const page2 = await browser.newPage();
 
-            console.log('🧭 Трансформиран URL за брошура:', firstBrochureUrl);
             await page2.goto(firstBrochureUrl, { waitUntil: 'networkidle2' });
 
             const menuUrl = firstBrochureUrl.replace('/view/flyer/page/1', '/view/menu/page/1');
 
-            console.log('🧭 URL за менюто:', menuUrl);
             await page2.goto(menuUrl, { waitUntil: 'networkidle2' });
 
             try {
@@ -197,7 +190,6 @@ async function scrapeBrouchuresKaufland(req, res) {
 
                 if (checkError) throw checkError;
                 if (existing) {
-                    console.log('🔁 Пропусната - вече съществува в базата:', pdfUrl);
                     await page2.close();
                     continue;
                 }
@@ -217,7 +209,6 @@ async function scrapeBrouchuresKaufland(req, res) {
 
                 if (uploadError) {
                     if (uploadError.message.includes('The resource already exists')) {
-                        console.log('📦 Вече съществува:', fileName);
                         await page2.close();
                         continue;
                     }
@@ -261,5 +252,44 @@ async function scrapeBrouchuresKaufland(req, res) {
     }
 }
 
+async function archiveExpiredBrochures(req, res) {
+    try {
+      const now = new Date().toISOString();
+  
+      // 1. Намираме всички, които са изтекли и още не са архивирани
+      const { data: expired, error } = await supabase
+        .from('brochures')
+        .select('id')
+        .lt('expires_at', now)
+        .eq('archived', false);
+  
+      if (error) throw error;
+  
+      if (!expired || expired.length === 0) {
+        return res.json({ message: 'Няма изтекли брошури за архивиране.' });
+      }
+  
+      const ids = expired.map(b => b.id);
+  
+      // 2. Обновяваме колоната archived на true за намерените записи
+      const { error: updateError } = await supabase
+        .from('brochures')
+        .update({ archived: true })
+        .in('id', ids);
+  
+      if (updateError) throw updateError;
+  
+      return res.json({
+        message: 'Успешно архивирани изтеклите брошури.',
+        count: ids.length,
+        archivedIds: ids,
+      });
+  
+    } catch (err) {
+      console.error('Грешка при архивиране:', err.message);
+      return res.status(500).json({ error: 'Грешка при архивиране.', details: err.message });
+    }
+  }
 
-module.exports = { scrapeBrouchuresLidl, scrapeBrouchuresKaufland };
+
+module.exports = { scrapeBrouchuresLidl, scrapeBrouchuresKaufland, archiveExpiredBrochures };

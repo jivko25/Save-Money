@@ -1,5 +1,5 @@
 const cron = require('node-cron');
-const { scrapeBrouchuresLidl, scrapeBrouchuresKaufland } = require('../services/brochureService');
+const { scrapeBrouchuresLidl, scrapeBrouchuresKaufland, archiveExpiredBrochures } = require('../services/brochureService');
 
 // Фалшиви req и res обекти
 const fakeReq = {};
@@ -20,4 +20,23 @@ cron.schedule('0 9 * * 4', async () => {
 cron.schedule('0 9 * * 5', async () => {
     console.log('🕘 Стартира Kaufland скрейп');
     await scrapeBrouchuresKaufland(fakeReq, fakeRes);
+});
+
+//For testing
+cron.schedule('37 14 * * *', async () => {
+    console.log('🕘 Стартира Kaufland скрейп');
+    await scrapeBrouchuresKaufland(fakeReq, fakeRes);
+}, {
+    timezone: 'Europe/Sofia'
+});
+
+cron.schedule('0 9 * * *', async () => {
+    console.log('⏰ Стартиране на архивиране на изтекли брошури:', new Date().toLocaleString());
+    try {
+        await archiveExpiredBrochures(fakeReq, fakeRes);
+    } catch (err) {
+        console.error('❌ Грешка при изпълнение на архива:', err);
+    }
+}, {
+    timezone: 'Europe/Sofia'
 });
