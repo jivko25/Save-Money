@@ -21,9 +21,3 @@ cron.schedule('0 9 * * 5', async () => {
     console.log('🕘 Стартира Kaufland скрейп');
     await scrapeBrouchuresKaufland(fakeReq, fakeRes);
 });
-
-cron.schedule('35 14 * * *', () => {
-    console.log('🔥 Задачата се изпълни в 14:35 БГ време!');
-}, {
-    timezone: 'Europe/Sofia'
-});
