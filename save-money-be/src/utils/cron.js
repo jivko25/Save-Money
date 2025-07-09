@@ -1,5 +1,5 @@
 const cron = require('node-cron');
-const { scrapeBrouchuresLidl, scrapeBrouchuresKaufland, archiveExpiredBrochures } = require('../services/brochureService');
+const { scrapeBrouchuresLidl, scrapeBrouchuresKaufland, archiveExpiredBrochures, scrapeBrouchuresBilla } = require('../services/brochureService');
 
 // Фалшиви req и res обекти
 const fakeReq = {};
@@ -9,6 +9,12 @@ const fakeRes = {
         json: (err) => console.error(`❌ Грешка (${code}):`, err),
     }),
 };
+
+// Billa: сряда в 9:00
+cron.schedule('0 9 * * 3', async () => {
+    console.log('🕘 Стартира Billa скрейп');
+    await scrapeBrouchuresBilla(fakeReq, fakeRes);
+});
 
 // Lidl: четвъртък в 9:00
 cron.schedule('0 9 * * 4', async () => {
