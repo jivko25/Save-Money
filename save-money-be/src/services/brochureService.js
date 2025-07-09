@@ -251,6 +251,117 @@ async function scrapeBrouchuresKaufland(req, res) {
     }
 }
 
+async function scrapeBrouchuresBilla(req, res) {
+    const url = 'https://www.billa.bg/promocii/sedmichna-broshura';
+    const store = 'Billa';
+    let browser;
+  
+    try {
+      browser = await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      });
+  
+      const page = await browser.newPage();
+      await page.goto(url, { waitUntil: 'networkidle2' });
+  
+      // Изчакваме малко, защото има iframe и динамично зареждане
+      await new Promise(resolve => setTimeout(resolve, 5000));
+  
+      // Достъп до iframe, където се намира линка
+      const iframeElement = await page.$('iframe');
+      if (!iframeElement) {
+        throw new Error('Не намерих iframe с id "publitas-iframe"');
+      }
+      const iframe = await iframeElement.contentFrame();
+  
+      if (!iframe) {
+        throw new Error('Не мога да взема contentFrame на iframe');
+      }
+  
+      // Изчакваме бутона за сваляне на PDF
+      await iframe.waitForSelector('a#downloadAsPdf[href$=".pdf"]', { timeout: 10000 });
+  
+      // Взимаме линка на PDF
+      const pdfUrl = await iframe.$eval('a#downloadAsPdf', el => el.href);
+      if (!pdfUrl) {
+        throw new Error('Не намерих линк към PDF');
+      }
+  
+      // Проверяваме дали вече имаме тази брошура в базата
+      const { data: existing, error: checkError } = await supabase
+        .from('brochures')
+        .select('id')
+        .eq('pdf_url', pdfUrl)
+        .maybeSingle();
+  
+      if (checkError) throw checkError;
+  
+      if (existing) {
+        await browser.close();
+        return res.json({
+          message: 'Брошурата вече съществува в базата.',
+          pdfUrl,
+        });
+      }
+  
+      // Сваляме PDF файла
+      const pdfRes = await axios.get(pdfUrl, { responseType: 'arraybuffer' });
+      const fileBuffer = Buffer.from(pdfRes.data);
+      const today = new Date().toISOString().slice(0, 10);
+      const fileName = `${store.toLowerCase()}_${today}_${Math.random().toString(36).slice(2, 6)}.pdf`;
+  
+      // Качваме в Supabase bucket
+      const { error: uploadError } = await supabase.storage
+        .from(BUCKET)
+        .upload(fileName, fileBuffer, {
+          contentType: 'application/pdf',
+          upsert: false,
+        });
+  
+      if (uploadError) {
+        if (uploadError.message.includes('The resource already exists')) {
+          await browser.close();
+          return res.json({
+            message: 'Файлът вече съществува в bucket-а.',
+            pdfUrl,
+          });
+        }
+        throw uploadError;
+      }
+  
+      // Запис в базата
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+  
+      const { error: dbError } = await supabase.from('brochures').insert([{
+        store_name: store,
+        source_url: url,
+        pdf_url: pdfUrl,
+        file_name: fileName,
+        uploaded_at: new Date(),
+        expires_at: expiresAt,
+      }]);
+  
+      if (dbError) throw dbError;
+  
+      await browser.close();
+  
+      return res.json({
+        message: 'Брошурата е успешно свалена и записана.',
+        fileName,
+        pdfUrl,
+      });
+    } catch (err) {
+      if (browser) await browser.close();
+      console.error('❌ Billa scraper error:', err.message);
+      return res.status(500).json({
+        error: 'Грешка при скрейпване или качване.',
+        details: err.message,
+      });
+    }
+  }
+
 async function archiveExpiredBrochures(req, res) {
     try {
         const now = new Date().toISOString();
@@ -352,4 +463,4 @@ module.exports = {
 
 
 
-module.exports = { scrapeBrouchuresLidl, scrapeBrouchuresKaufland, archiveExpiredBrochures, getBrochureById, getAllBrochures };
+module.exports = { scrapeBrouchuresLidl, scrapeBrouchuresKaufland, archiveExpiredBrochures, getBrochureById, getAllBrochures, scrapeBrouchuresBilla };
