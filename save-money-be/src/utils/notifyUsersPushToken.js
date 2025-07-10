@@ -6,8 +6,9 @@ const expo = new Expo();
  * @param {string[]} tokens - масив от валидни Expo push токени
  * @param {string} title - заглавие на нотификацията
  * @param {string} body - съдържание на нотификацията
+ * @param {object} data - допълнителни данни за нотификацията (опционално)
  */
-async function sendPushNotification(tokens, title, body) {
+async function sendPushNotification(tokens, title, body, data = {}) {
   const messages = tokens
     .filter(token => Expo.isExpoPushToken(token))
     .map(token => ({
@@ -15,6 +16,7 @@ async function sendPushNotification(tokens, title, body) {
       sound: 'default',
       title,
       body,
+      data,
     }));
 
   try {
