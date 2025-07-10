@@ -1,5 +1,10 @@
 const cron = require('node-cron');
-const { scrapeBrouchuresLidl, scrapeBrouchuresKaufland, archiveExpiredBrochures, scrapeBrouchuresBilla } = require('../services/brochureService');
+const {
+    scrapeBrouchuresLidl,
+    scrapeBrouchuresKaufland,
+    scrapeBrouchuresBilla,
+    archiveExpiredBrochures,
+} = require('../services/brochureService');
 
 // Фалшиви req и res обекти
 const fakeReq = {};
@@ -10,39 +15,27 @@ const fakeRes = {
     }),
 };
 
-// Billa: сряда в 9:00
-cron.schedule('0 9 * * 3', async () => {
-    console.log('🕘 Стартира Billa скрейп');
-    await scrapeBrouchuresBilla(fakeReq, fakeRes);
-});
+// 🕗 Ежедневна задача в 8:00 сутринта
+cron.schedule('0 8 * * *', async () => {
+    console.log('🚀 Стартира ежедневен скрейп в 8:00:', new Date().toLocaleString('bg-BG', { timeZone: 'Europe/Sofia' }));
 
-// Lidl: четвъртък в 9:00
-cron.schedule('0 9 * * 4', async () => {
-    console.log('🕘 Стартира Lidl скрейп');
-    await scrapeBrouchuresLidl(fakeReq, fakeRes);
-});
-
-// Kaufland: петък в 9:00
-cron.schedule('0 9 * * 5', async () => {
-    console.log('🕘 Стартира Kaufland скрейп');
-    await scrapeBrouchuresKaufland(fakeReq, fakeRes);
-});
-
-//For testing
-cron.schedule('37 14 * * *', async () => {
-    console.log('🕘 Стартира Kaufland скрейп');
-    await scrapeBrouchuresKaufland(fakeReq, fakeRes);
-}, {
-    timezone: 'Europe/Sofia'
-});
-
-cron.schedule('0 9 * * *', async () => {
-    console.log('⏰ Стартиране на архивиране на изтекли брошури:', new Date().toLocaleString());
     try {
-        await archiveExpiredBrochures(fakeReq, fakeRes);
+        console.log('🔍 Скрейп Billa...');
+        await scrapeBrouchuresBilla(fakeReq, fakeRes);
+
+        console.log('🔍 Скрейп Lidl...');
+        await scrapeBrouchuresLidl(fakeReq, fakeRes);
+
+        console.log('🔍 Скрейп Kaufland...');
+        await scrapeBrouchuresKaufland(fakeReq, fakeRes);
+
+        // console.log('📦 Архивиране на изтекли...');
+        // await archiveExpiredBrochures(fakeReq, fakeRes);
+
+        console.log('✅ Скрейп и архивиране завършени успешно.');
     } catch (err) {
-        console.error('❌ Грешка при изпълнение на архива:', err);
+        console.error('❌ Грешка при изпълнение на дневната задача:', err.message);
     }
 }, {
-    timezone: 'Europe/Sofia'
+    timezone: 'Europe/Sofia',
 });
