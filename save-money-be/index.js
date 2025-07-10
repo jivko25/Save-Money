@@ -9,6 +9,7 @@ const { storeController } = require('./src/controllers/storeController');
 const { pushTokenRouter } = require('./src/controllers/PushTokenController');
 const { cardsRouter } = require('./src/controllers/cardsController');
 const brouchuresRouter = require('./src/controllers/brochureController');
+const { notificationRouter } = require('./src/controllers/notificationController');
 
 const app = express();
 const PORT = 3000;
@@ -23,6 +24,7 @@ app.use('/api/store', storeController);
 app.use('/api/push-token', pushTokenRouter);
 app.use('/api/qr-card', cardsRouter);
 app.use('/api/brouchures', brouchuresRouter);
+app.use('/api/notifications', notificationRouter);
 
 app.listen(PORT, () => {
   console.log(`Сървърът работи на http://localhost:${PORT}`);
