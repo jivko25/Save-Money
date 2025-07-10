@@ -22,7 +22,7 @@ async function notifyAppUpdate(version, url) {
             return { success: false, error: 'Няма регистрирани push токени' };
         }
 
-        const title = 'Нова версия налично!';
+        const title = 'Нова версия е налична!';
         const body = `Достъпна е нова версия ${version} на приложението. Изтеглете я сега!`;
 
         // Подготви данни за нотификацията
