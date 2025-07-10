@@ -19,14 +19,12 @@ async function scrapeBrouchuresLidl(req, res) {
         const page = await browser.newPage();
         await page.goto(url, { waitUntil: 'domcontentloaded' });
 
-        // 🔍 Вземаме всички линкове към брошури
         await page.waitForSelector('a.flyer', { timeout: 10000 });
         const flyerLinks = await page.$$eval('a.flyer', links =>
             links.map(a => a.href).filter(href => href.includes('/broshura/'))
         );
 
         const uniqueFlyers = [...new Set(flyerLinks)];
-
         const results = [];
 
         for (const flyerLink of uniqueFlyers) {
@@ -38,12 +36,10 @@ async function scrapeBrouchuresLidl(req, res) {
 
             const datePart = match[1];
             const menuUrl = `https://www.lidl.bg/l/bg/broshura/${datePart}/view/menu/page/1`;
-
             const brochurePage = await browser.newPage();
 
             try {
                 await brochurePage.goto(menuUrl, { waitUntil: 'networkidle2', timeout: 60000 });
-
                 await brochurePage.waitForSelector('section.menu', { visible: true, timeout: 15000 });
                 await brochurePage.waitForSelector('a.menu-item__button[href$=".pdf"]', { visible: true, timeout: 15000 });
 
@@ -54,11 +50,10 @@ async function scrapeBrouchuresLidl(req, res) {
                     continue;
                 }
 
-                // Проверка в базата
                 const { data: existing, error: checkError } = await supabase
                     .from('brochures')
                     .select('id')
-                    .eq('pdf_url', pdfUrl)
+                    .eq('source_url', menuUrl)
                     .maybeSingle();
 
                 if (checkError) throw checkError;
@@ -72,7 +67,7 @@ async function scrapeBrouchuresLidl(req, res) {
                 const today = new Date().toISOString().slice(0, 10);
                 const fileName = `${store.toLowerCase()}_${today}_${Math.random().toString(36).slice(2, 6)}.pdf`;
 
-                const { error: uploadError } = await supabase.storage
+                const { error: uploadError, data } = await supabase.storage
                     .from(BUCKET)
                     .upload(fileName, fileBuffer, {
                         contentType: 'application/pdf',
@@ -93,15 +88,16 @@ async function scrapeBrouchuresLidl(req, res) {
                 const { error: dbError } = await supabase.from('brochures').insert([{
                     store_name: store,
                     source_url: menuUrl,
-                    pdf_url: pdfUrl,
+                    pdf_url: `${process.env.SUPABASE_URL}/storage/v1/object/public/${data.fullPath}`,
                     file_name: fileName,
                     uploaded_at: new Date(),
                     expires_at: expiresAt,
+                    archived: false,
                 }]);
 
                 if (dbError) throw dbError;
 
-                results.push({ fileName, pdfUrl });
+                results.push({ fileName, menuUrl });
                 await brochurePage.close();
             } catch (errInner) {
                 console.warn('❌ Пропусната поради грешка:', menuUrl, errInner.message);
@@ -111,10 +107,39 @@ async function scrapeBrouchuresLidl(req, res) {
 
         await browser.close();
 
+        // 🔄 Архивиране на несъществуващи брошури
+        const { data: currentActive, error: fetchActiveError } = await supabase
+            .from('brochures')
+            .select('id, source_url')
+            .eq('store_name', store)
+            .eq('archived', false);
+
+        if (fetchActiveError) throw fetchActiveError;
+
+        const newPdfUrls = results.map(r => r.menuUrl);
+        const toArchive = newPdfUrls.length > 0 && currentActive?.filter(b => {
+            console.log(newPdfUrls, b.source_url);
+
+            return !newPdfUrls.includes(b.source_url)
+        }
+        ) || [];
+
+        if (toArchive.length > 0) {
+            const idsToArchive = toArchive.map(b => b.id);
+
+            const { error: archiveError } = await supabase
+                .from('brochures')
+                .update({ archived: true })
+                .in('id', idsToArchive);
+
+            if (archiveError) throw archiveError;
+        }
+
         return res.json({
             message: '✅ Всички брошури са обработени.',
             total: results.length,
             files: results,
+            archivedCount: toArchive.length,
         });
 
     } catch (err) {
@@ -126,6 +151,7 @@ async function scrapeBrouchuresLidl(req, res) {
         });
     }
 }
+
 
 function transformKauflandUrl(rawUrl) {
     if (!rawUrl.includes('/ar/')) return null;
@@ -180,11 +206,11 @@ async function scrapeBrouchuresKaufland(req, res) {
                 const pdfUrl = await page2.$eval('a.menu-item__button[href$=".pdf"]', a => a.href);
                 if (!pdfUrl) throw new Error('Не е намерен линк към PDF файла.');
 
-                // 🔍 Проверка в базата дали този PDF вече съществува
+                // Проверка дали вече съществува
                 const { data: existing, error: checkError } = await supabase
                     .from('brochures')
                     .select('id')
-                    .eq('pdf_url', pdfUrl)
+                    .eq('source_url', menuUrl)
                     .maybeSingle();
 
                 if (checkError) throw checkError;
@@ -199,7 +225,7 @@ async function scrapeBrouchuresKaufland(req, res) {
                 const today = new Date().toISOString().slice(0, 10);
                 const fileName = `${store.toLowerCase()}_${today}_${Math.random().toString(36).slice(2, 6)}.pdf`;
 
-                const { error: uploadError } = await supabase.storage
+                const { error: uploadError, data } = await supabase.storage
                     .from(BUCKET)
                     .upload(fileName, fileBuffer, {
                         contentType: 'application/pdf',
@@ -220,15 +246,16 @@ async function scrapeBrouchuresKaufland(req, res) {
                 const { error: dbError } = await supabase.from('brochures').insert([{
                     store_name: store,
                     source_url: menuUrl,
-                    pdf_url: pdfUrl,
+                    pdf_url: `${process.env.SUPABASE_URL}/storage/v1/object/public/${data.fullPath}`,
                     file_name: fileName,
                     uploaded_at: new Date(),
                     expires_at: expiresAt,
+                    archived: false,
                 }]);
 
                 if (dbError) throw dbError;
 
-                results.push({ fileName, pdfUrl });
+                results.push({ fileName, menuUrl });
                 await page2.close();
             } catch (innerErr) {
                 console.warn('❌ Пропускане на брошура:', menuUrl, innerErr.message);
@@ -238,10 +265,35 @@ async function scrapeBrouchuresKaufland(req, res) {
 
         await browser.close();
 
+        // 🔍 Архивиране на несъществуващи брошури
+        const { data: currentActive, error: fetchActiveError } = await supabase
+            .from('brochures')
+            .select('id, source_url')
+            .eq('store_name', store)
+            .eq('archived', false);
+
+        if (fetchActiveError) throw fetchActiveError;
+
+        const newPdfUrls = results.map(r => r.menuUrl);
+
+        const toArchive = newPdfUrls.length > 0 &&  currentActive?.filter(b => !newPdfUrls.includes(b.source_url)) || [];
+
+        if (toArchive.length > 0) {
+            const idsToArchive = toArchive.map(b => b.id);
+
+            const { error: archiveError } = await supabase
+                .from('brochures')
+                .update({ archived: true })
+                .in('id', idsToArchive);
+
+            if (archiveError) throw archiveError;
+        }
+
         return res.json({
             message: '✅ Всички брошури са обработени.',
             total: results.length,
             files: results,
+            archivedCount: toArchive.length,
         });
 
     } catch (err) {
@@ -251,116 +303,134 @@ async function scrapeBrouchuresKaufland(req, res) {
     }
 }
 
+
 async function scrapeBrouchuresBilla(req, res) {
     const url = 'https://www.billa.bg/promocii/sedmichna-broshura';
     const store = 'Billa';
     let browser;
-  
+
     try {
-      browser = await puppeteer.launch({
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
-      });
-  
-      const page = await browser.newPage();
-      await page.goto(url, { waitUntil: 'networkidle2' });
-  
-      // Изчакваме малко, защото има iframe и динамично зареждане
-      await new Promise(resolve => setTimeout(resolve, 5000));
-  
-      // Достъп до iframe, където се намира линка
-      const iframeElement = await page.$('iframe');
-      if (!iframeElement) {
-        throw new Error('Не намерих iframe с id "publitas-iframe"');
-      }
-      const iframe = await iframeElement.contentFrame();
-  
-      if (!iframe) {
-        throw new Error('Не мога да взема contentFrame на iframe');
-      }
-  
-      // Изчакваме бутона за сваляне на PDF
-      await iframe.waitForSelector('a#downloadAsPdf[href$=".pdf"]', { timeout: 10000 });
-  
-      // Взимаме линка на PDF
-      const pdfUrl = await iframe.$eval('a#downloadAsPdf', el => el.href);
-      if (!pdfUrl) {
-        throw new Error('Не намерих линк към PDF');
-      }
-  
-      // Проверяваме дали вече имаме тази брошура в базата
-      const { data: existing, error: checkError } = await supabase
-        .from('brochures')
-        .select('id')
-        .eq('pdf_url', pdfUrl)
-        .maybeSingle();
-  
-      if (checkError) throw checkError;
-  
-      if (existing) {
-        await browser.close();
-        return res.json({
-          message: 'Брошурата вече съществува в базата.',
-          pdfUrl,
+        browser = await puppeteer.launch({
+            headless: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox'],
         });
-      }
-  
-      // Сваляме PDF файла
-      const pdfRes = await axios.get(pdfUrl, { responseType: 'arraybuffer' });
-      const fileBuffer = Buffer.from(pdfRes.data);
-      const today = new Date().toISOString().slice(0, 10);
-      const fileName = `${store.toLowerCase()}_${today}_${Math.random().toString(36).slice(2, 6)}.pdf`;
-  
-      // Качваме в Supabase bucket
-      const { error: uploadError } = await supabase.storage
-        .from(BUCKET)
-        .upload(fileName, fileBuffer, {
-          contentType: 'application/pdf',
-          upsert: false,
-        });
-  
-      if (uploadError) {
-        if (uploadError.message.includes('The resource already exists')) {
-          await browser.close();
-          return res.json({
-            message: 'Файлът вече съществува в bucket-а.',
-            pdfUrl,
-          });
+
+        const page = await browser.newPage();
+        await page.goto(url, { waitUntil: 'networkidle2' });
+
+        // Изчакваме малко, защото има iframe и динамично зареждане
+        await new Promise(resolve => setTimeout(resolve, 5000));
+
+        // Достъп до iframe, където се намира линка
+        const iframeElement = await page.$('iframe');
+        if (!iframeElement) throw new Error('Не намерих iframe');
+        const iframe = await iframeElement.contentFrame();
+        if (!iframe) throw new Error('Не мога да взема contentFrame на iframe');
+
+        // Изчакваме бутона за сваляне на PDF
+        await iframe.waitForSelector('a#downloadAsPdf[href$=".pdf"]', { timeout: 10000 });
+
+        // Взимаме линка на PDF
+        const pdfUrl = await iframe.$eval('a#downloadAsPdf', el => el.href);
+        if (!pdfUrl) throw new Error('Не намерих линк към PDF');
+
+        // Проверяваме дали вече съществува тази брошура
+        const { data: existing, error: checkError } = await supabase
+            .from('brochures')
+            .select('id')
+            .eq('source_url', pdfUrl)
+            .eq('archived', false)
+            .limit(1);
+
+        if (checkError) throw checkError;
+
+        let fileName = '';
+        let inserted = false;
+
+        if (!existing || existing.length === 0) {
+            // Сваляме PDF файла
+            const pdfRes = await axios.get(pdfUrl, { responseType: 'arraybuffer' });
+            const fileBuffer = Buffer.from(pdfRes.data);
+            const today = new Date().toISOString().slice(0, 10);
+            fileName = `${store.toLowerCase()}_${today}_${Math.random().toString(36).slice(2, 6)}.pdf`;
+
+            // Качваме в Supabase bucket
+            const { error: uploadError, data } = await supabase.storage
+                .from(BUCKET)
+                .upload(fileName, fileBuffer, {
+                    contentType: 'application/pdf',
+                    upsert: false,
+                });
+
+            if (uploadError) {
+                if (uploadError.message.includes('The resource already exists')) {
+                    await browser.close();
+                    return res.json({
+                        message: 'Файлът вече съществува в bucket-а.',
+                        pdfUrl,
+                    });
+                }
+                throw uploadError;
+            }
+
+            // Запис в базата
+            const expiresAt = new Date();
+            expiresAt.setDate(expiresAt.getDate() + 7);
+
+            const { error: dbError } = await supabase.from('brochures').insert([{
+                store_name: store,
+                source_url: pdfUrl,
+                pdf_url: `${process.env.SUPABASE_URL}/storage/v1/object/public/${data.fullPath}`,
+                file_name: fileName,
+                uploaded_at: new Date(),
+                expires_at: expiresAt,
+                archived: false,
+            }]);
+
+            if (dbError) throw dbError;
+
+            inserted = true;
         }
-        throw uploadError;
-      }
-  
-      // Запис в базата
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 7);
-  
-      const { error: dbError } = await supabase.from('brochures').insert([{
-        store_name: store,
-        source_url: url,
-        pdf_url: pdfUrl,
-        file_name: fileName,
-        uploaded_at: new Date(),
-        expires_at: expiresAt,
-      }]);
-  
-      if (dbError) throw dbError;
-  
-      await browser.close();
-  
-      return res.json({
-        message: 'Брошурата е успешно свалена и записана.',
-        fileName,
-        pdfUrl,
-      });
+
+        await browser.close();
+
+        // 🔄 Архивиране на стари брошури, различни от текущия pdfUrl
+        const { data: activeBrochures, error: fetchError } = await supabase
+            .from('brochures')
+            .select('id, source_url')
+            .eq('store_name', store)
+            .eq('archived', false);
+
+        if (fetchError) throw fetchError;
+
+        const toArchive = activeBrochures?.filter(b => b.source_url !== pdfUrl) || [];
+
+        if (toArchive.length > 0) {
+            const idsToArchive = toArchive.map(b => b.id);
+            const { error: archiveError } = await supabase
+                .from('brochures')
+                .update({ archived: true })
+                .in('id', idsToArchive);
+
+            if (archiveError) throw archiveError;
+        }
+
+        return res.json({
+            message: inserted ? '📥 Нова брошура е добавена.' : 'ℹ️ Брошурата вече съществува.',
+            fileName: inserted ? fileName : null,
+            pdfUrl,
+            archivedCount: toArchive.length,
+        });
+
     } catch (err) {
-      if (browser) await browser.close();
-      console.error('❌ Billa scraper error:', err.message);
-      return res.status(500).json({
-        error: 'Грешка при скрейпване или качване.',
-        details: err.message,
-      });
+        if (browser) await browser.close();
+        console.error('❌ Billa scraper error:', err.message);
+        return res.status(500).json({
+            error: 'Грешка при скрейпване или качване.',
+            details: err.message,
+        });
     }
-  }
+}
 
 async function archiveExpiredBrochures(req, res) {
     try {
