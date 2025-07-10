@@ -13,7 +13,7 @@ async function sendPushNotification(tokens, title, body, data = {}) {
     .filter(token => Expo.isExpoPushToken(token))
     .map(token => ({
       to: token,
-      sound: 'duck-quack.mp3',
+      sound: 'duckquack.mp3',
       title,
       body,
       data,
