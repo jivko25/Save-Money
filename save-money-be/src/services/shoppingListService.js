@@ -24,7 +24,7 @@ async function getShoppingLists(req, res) {
     const userId = req.user.id;
 
     const { data, error } = await supabase
-        .from('shopping_list_members')
+        .from('user_shopping_lists')
         .select('shopping_list_id, shopping_lists(*)')
         .eq('user_id', userId);
 
@@ -39,7 +39,7 @@ async function getShoppingListById(req, res) {
     const userId = req.user.id;
 
     const { data, error } = await supabase
-        .from('shopping_list_members')
+        .from('user_shopping_lists')
         .select('shopping_lists(*)')
         .eq('user_id', userId)
         .eq('shopping_list_id', id)
@@ -186,81 +186,81 @@ async function addItemsToList(req, res) {
 
 async function getItemsByShoppingListId(req, res) {
     try {
-      const { shoppingListId } = req.params;
-      const { data, error } = await supabase
-        .from('shopping_list_items')
-        .select('*')
-        .eq('shopping_list_id', shoppingListId)
-        .order('created_at', { ascending: true });
-  
-      if (error) throw error;
-  
-      res.json(data);
+        const { shoppingListId } = req.params;
+        const { data, error } = await supabase
+            .from('shopping_list_items')
+            .select('*')
+            .eq('shopping_list_id', shoppingListId)
+            .order('created_at', { ascending: true });
+
+        if (error) throw error;
+
+        res.json(data);
     } catch (error) {
-      console.error('Get items error:', error.message);
-      res.status(500).json({ error: 'Unable to fetch items' });
+        console.error('Get items error:', error.message);
+        res.status(500).json({ error: 'Unable to fetch items' });
     }
-  };
-  
-  // 👇 Взимане на един айтъм
-  async function getItemById(req, res) {
+};
+
+// 👇 Взимане на един айтъм
+async function getItemById(req, res) {
     try {
-      const { itemId } = req.params;
-      const { data, error } = await supabase
-        .from('shopping_list_items')
-        .select('*')
-        .eq('id', itemId)
-        .single();
-  
-      if (error) throw error;
-  
-      res.json(data);
+        const { itemId } = req.params;
+        const { data, error } = await supabase
+            .from('shopping_list_items')
+            .select('*')
+            .eq('id', itemId)
+            .single();
+
+        if (error) throw error;
+
+        res.json(data);
     } catch (error) {
-      console.error('Get item error:', error.message);
-      res.status(500).json({ error: 'Unable to fetch item' });
+        console.error('Get item error:', error.message);
+        res.status(500).json({ error: 'Unable to fetch item' });
     }
-  };
-  
-  // 👇 Редакция на айтъм
-  async function updateItem(req, res) {
+};
+
+// 👇 Редакция на айтъм
+async function updateItem(req, res) {
     try {
-      const { itemId } = req.params;
-      const { name, quantity, is_bought } = req.body;
-  
-      const { data, error } = await supabase
-        .from('shopping_list_items')
-        .update({ name, quantity, is_bought })
-        .eq('id', itemId)
-        .select()
-        .single();
-  
-      if (error) throw error;
-  
-      res.json(data);
+        const { itemId } = req.params;
+        const { name, quantity, is_bought } = req.body;
+
+        const { data, error } = await supabase
+            .from('shopping_list_items')
+            .update({ name, quantity, is_bought })
+            .eq('id', itemId)
+            .select()
+            .single();
+
+        if (error) throw error;
+
+        res.json(data);
     } catch (error) {
-      console.error('Update item error:', error.message);
-      res.status(500).json({ error: 'Unable to update item' });
+        console.error('Update item error:', error.message);
+        res.status(500).json({ error: 'Unable to update item' });
     }
-  };
-  
-  // 👇 Изтриване на айтъм
-  async function deleteItem(req, res) {
+};
+
+// 👇 Изтриване на айтъм
+async function deleteItem(req, res) {
     try {
-      const { itemId } = req.params;
-  
-      const { error } = await supabase
-        .from('shopping_list_items')
-        .delete()
-        .eq('id', itemId);
-  
-      if (error) throw error;
-  
-      res.status(204).send();
+        const { itemId } = req.params;
+
+        const { error } = await supabase
+            .from('shopping_list_items')
+            .delete()
+            .eq('id', itemId);
+
+        if (error) throw error;
+
+        res.status(204).send();
     } catch (error) {
-      console.error('Delete item error:', error.message);
-      res.status(500).json({ error: 'Unable to delete item' });
+        console.error('Delete item error:', error.message);
+        res.status(500).json({ error: 'Unable to delete item' });
     }
-  };
+};
 
 module.exports = {
     shoppingListCrud: {
