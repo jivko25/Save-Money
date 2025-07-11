@@ -1,6 +1,6 @@
-const { supabase } = require('../utils/supabaseClient');
 const vision = require('@google-cloud/vision');
 const path = require('path');
+const supabase = require('../../supabase');
 
 const client = new vision.ImageAnnotatorClient({
     keyFilename: path.resolve(__dirname, '../../quack-scanner-85b31c63cee6.json'),
