@@ -7,18 +7,39 @@ const client = new vision.ImageAnnotatorClient({
 });
 
 async function createShoppingList(req, res) {
-    const { name, description = '' } = req.body;
+    const { name } = req.body;
     const userId = req.user.id;
 
-    const { data, error } = await supabase
-        .from('shopping_lists')
-        .insert([{ name, description, created_by: userId }])
-        .select()
-        .single();
+    try {
+        // 1. Вмъкваме новия списък и връщаме създадения ред
+        const { data: listData, error: listError } = await supabase
+            .from('shopping_lists')
+            .insert([{ name, created_by: userId }])
+            .select()
+            .single();
 
-    if (error) return res.status(500).json({ error: error.message });
-    res.status(201).json(data);
+        if (listError) throw listError;
+
+        // 2. Вмъкваме запис в user_shopping_lists за връзка на потребителя със списъка
+        const { error: userListError } = await supabase
+            .from('user_shopping_lists')
+            .insert([{
+                user_id: userId,
+                shopping_list_id: listData.id,
+                role: 'member',
+            }]);
+
+        if (userListError) throw userListError;
+
+        // 3. Връщаме създадения списък
+        res.status(201).json(listData);
+
+    } catch (error) {
+        console.error('Error creating shopping list:', error);
+        res.status(500).json({ error: error.message });
+    }
 }
+
 
 async function getShoppingLists(req, res) {
     const userId = req.user.id;
