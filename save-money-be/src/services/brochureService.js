@@ -49,6 +49,9 @@ async function scrapeBrouchuresLidl(req, res) {
                     await brochurePage.close();
                     continue;
                 }
+                const today = new Date().toISOString().slice(0, 10);
+                const fileName = `${store.toLowerCase()}_${today}_${Math.random().toString(36).slice(2, 6)}.pdf`;
+                results.push({ fileName, menuUrl });
 
                 const { data: existing, error: checkError } = await supabase
                     .from('brochures')
@@ -64,8 +67,6 @@ async function scrapeBrouchuresLidl(req, res) {
 
                 const pdfRes = await axios.get(pdfUrl, { responseType: 'arraybuffer' });
                 const fileBuffer = Buffer.from(pdfRes.data);
-                const today = new Date().toISOString().slice(0, 10);
-                const fileName = `${store.toLowerCase()}_${today}_${Math.random().toString(36).slice(2, 6)}.pdf`;
 
                 const { error: uploadError, data } = await supabase.storage
                     .from(BUCKET)
@@ -97,7 +98,6 @@ async function scrapeBrouchuresLidl(req, res) {
 
                 if (dbError) throw dbError;
 
-                results.push({ fileName, menuUrl });
                 await brochurePage.close();
             } catch (errInner) {
                 console.warn('❌ Пропусната поради грешка:', menuUrl, errInner.message);
@@ -206,6 +206,9 @@ async function scrapeBrouchuresKaufland(req, res) {
                 const pdfUrl = await page2.$eval('a.menu-item__button[href$=".pdf"]', a => a.href);
                 if (!pdfUrl) throw new Error('Не е намерен линк към PDF файла.');
 
+                const today = new Date().toISOString().slice(0, 10);
+                const fileName = `${store.toLowerCase()}_${today}_${Math.random().toString(36).slice(2, 6)}.pdf`;
+                results.push({ fileName, menuUrl });
                 // Проверка дали вече съществува
                 const { data: existing, error: checkError } = await supabase
                     .from('brochures')
@@ -222,8 +225,6 @@ async function scrapeBrouchuresKaufland(req, res) {
                 const pdfRes = await axios.get(pdfUrl, { responseType: 'arraybuffer' });
                 const fileBuffer = Buffer.from(pdfRes.data);
 
-                const today = new Date().toISOString().slice(0, 10);
-                const fileName = `${store.toLowerCase()}_${today}_${Math.random().toString(36).slice(2, 6)}.pdf`;
 
                 const { error: uploadError, data } = await supabase.storage
                     .from(BUCKET)
@@ -255,7 +256,6 @@ async function scrapeBrouchuresKaufland(req, res) {
 
                 if (dbError) throw dbError;
 
-                results.push({ fileName, menuUrl });
                 await page2.close();
             } catch (innerErr) {
                 console.warn('❌ Пропускане на брошура:', menuUrl, innerErr.message);
@@ -276,7 +276,7 @@ async function scrapeBrouchuresKaufland(req, res) {
 
         const newPdfUrls = results.map(r => r.menuUrl);
 
-        const toArchive = newPdfUrls.length > 0 &&  currentActive?.filter(b => !newPdfUrls.includes(b.source_url)) || [];
+        const toArchive = newPdfUrls.length > 0 && currentActive?.filter(b => !newPdfUrls.includes(b.source_url)) || [];
 
         if (toArchive.length > 0) {
             const idsToArchive = toArchive.map(b => b.id);

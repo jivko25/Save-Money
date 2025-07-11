@@ -18,7 +18,6 @@ const fakeRes = {
 // 🕗 Ежедневна задача в 8:00 сутринта
 cron.schedule('0 8 * * *', async () => {
     console.log('🚀 Стартира ежедневен скрейп в 8:00:', new Date().toLocaleString('bg-BG', { timeZone: 'Europe/Sofia' }));
-
     try {
         console.log('🔍 Скрейп Billa...');
         await scrapeBrouchuresBilla(fakeReq, fakeRes);
