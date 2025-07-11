@@ -26,6 +26,6 @@
     "multer": "^2.0.1",
     "node-cron": "^4.2.0",
     "puppeteer": "^24.12.0",
-    "qrcode-reader": "^1.0.4",
+    "qrcode-reader": "^1.0.4"
   }
 }
