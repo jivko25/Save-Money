@@ -19,11 +19,7 @@ shoppingListRouter.delete('/:id', shoppingListCrud.deleteShoppingList);
 
 shoppingListRouter.post('/invite', shoppingListRoles.inviteUserToShoppingList);
 
-shoppingListRouter.post(
-    '/:shoppingListId/items/from-images',
-    upload.array('images'),
-    itemsCrud.addItemsToList
-);
+shoppingListRouter.post('/:shoppingListId/items/from-images',upload.array('images'), itemsCrud.addItemsToList);
 shoppingListRouter.get('/:shoppingListId/items', itemsCrud.getItemsByShoppingListId);
 shoppingListRouter.get('/:shoppingListId/items/:itemId', itemsCrud.getItemById);
 shoppingListRouter.put('/:shoppingListId/items/:itemId', itemsCrud.updateItem);
