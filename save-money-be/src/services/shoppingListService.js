@@ -1,5 +1,4 @@
 const vision = require('@google-cloud/vision');
-const path = require('path');
 const supabase = require('../../supabase');
 
 const client = new vision.ImageAnnotatorClient({
