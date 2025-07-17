@@ -168,42 +168,60 @@ async function addItemsToList(req, res) {
             return res.status(400).json({ error: 'No images uploaded' });
         }
 
-        const insertData = [];
+        // Проверка дали user има достъп до списъка (по избор)
+        const { data: access, error: accessError } = await supabase
+            .from('user_shopping_lists')
+            .select('user_id')
+            .eq('shopping_list_id', shoppingListId)
+            .eq('user_id', user.id)
+            .single();
 
-        for (const file of files) {
-            const [result] = await client.textDetection({ image: { content: file.buffer } });
-            const detections = result.textAnnotations;
-            const text = detections.length > 0 ? detections[0].description.trim() : null;
-
-            if (!text) continue;
-
-            const name = extractNameFromText(text);
-            const base64Image = file.buffer.toString('base64');
-
-            insertData.push({
-                shopping_list_id: shoppingListId,
-                name,
-                raw_text: text,
-                image_base64: base64Image,
-                quantity: 1,
-                is_bought: false,
-            });
+        if (accessError || !access) {
+            return res.status(403).json({ error: 'Not authorized to add items to this list' });
         }
 
-        if (insertData.length === 0) {
-            return res.status(500).json({ error: 'No valid texts extracted' });
+        // OCR паралелно за всички файлове
+        const insertData = await Promise.all(
+            files.map(async (file) => {
+                const [result] = await client.textDetection({ image: { content: file.buffer } });
+                const detections = result.textAnnotations;
+                const text = detections.length > 0 ? detections[0].description.trim() : null;
+
+                if (!text) return null;
+
+                const name = text;
+                if (!name) return null;
+
+                return {
+                    shopping_list_id: shoppingListId,
+                    name,
+                    raw_text: text,
+                    image_base64: file.buffer.toString('base64'),
+                    quantity: 1,
+                    is_bought: false,
+                };
+            })
+        );
+
+        // Филтриране на невалидните записи
+        const validItems = insertData.filter(Boolean);
+
+        if (validItems.length === 0) {
+            return res.status(400).json({ error: 'No valid texts extracted from images' });
         }
 
-        const { error } = await supabase.from('shopping_list_items').insert(insertData);
+        const { error } = await supabase.from('shopping_list_items').insert(validItems);
 
         if (error) throw error;
 
-        res.status(201).json({ message: 'Items added successfully', count: insertData.length });
+        res.status(201).json({ message: 'Items added successfully', count: validItems.length });
+
     } catch (error) {
         console.error('Error adding items from images:', error.message);
         res.status(500).json({ error: 'Failed to process uploaded images' });
     }
 }
+
 
 async function getItemsByShoppingListId(req, res) {
     try {
