@@ -1,9 +1,17 @@
 const vision = require('@google-cloud/vision');
 const path = require('path');
+const fs = require('fs');
 const supabase = require('../../supabase');
 
+
+const tempCredsPath = path.join(__dirname, 'google-key.json');
+
+if (!fs.existsSync(tempCredsPath)) {
+    const decoded = Buffer.from(process.env.GOOGLE_APPLICATION_CREDENTIALS_BASE64, 'base64').toString('utf8');
+    fs.writeFileSync(tempCredsPath, decoded);
+}
 const client = new vision.ImageAnnotatorClient({
-    keyFilename: path.resolve(__dirname, '../../quack-scanner-85b31c63cee6.json'),
+    keyFilename: tempCredsPath,
 });
 
 async function createShoppingList(req, res) {
