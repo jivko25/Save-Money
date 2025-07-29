@@ -125,6 +125,8 @@ async function getSingleReceipt(req, res) {
 async function postReceipt(req, res) {
     const { raw_code, budget_id, scanned_by, store_id } = req.body;
 
+    const defaultStoreId = 'aafb6b76-e622-46f7-904c-f38a39282d40';
+
     try {
         let date, time, amount, receiptNumber;
         
@@ -154,7 +156,7 @@ async function postReceipt(req, res) {
                 time,
                 amount,
                 raw_code: raw_code || `manual*online*${date}*${time}*${amount}`, // ако няма raw_code, слагаме нов
-                store_id,
+                store_id: store_id || defaultStoreId,
             })
             .select()
             .single();
