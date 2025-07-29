@@ -2,6 +2,7 @@ const vision = require('@google-cloud/vision');
 const supabase = require('../../supabase');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
+const { GoogleGenAI } = require('@google/genai');
 
 const client = new vision.ImageAnnotatorClient({
     credentials: {
@@ -16,8 +17,42 @@ const client = new vision.ImageAnnotatorClient({
         auth_provider_x509_cert_url: process.env.GOOGLE_AUTH_PROVIDER_CERT_URL,
         client_x509_cert_url: process.env.GOOGLE_CLIENT_CERT_URL,
         universe_domain: process.env.GOOGLE_UNIVERSE_DOMAIN,
-      }
+    }
 });
+
+const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY });
+
+function extractJsonFromMarkdown(text) {
+    const match = text.match(/```json\s*([\s\S]*?)\s*```/);
+    if (!match) throw new Error("No valid JSON block found");
+    return JSON.parse(match[1]);
+}
+
+async function processTextWithGemini(rawText) {
+    const prompt = `
+    Извлечи структурирана информация от следния неструктуриран OCR текст.
+    
+    Върни САМО валиден JSON обект с полетата:
+    - product: Името на продукта. Ако няма име, върне null.
+    - brand: Марката. Ако няма марка, върне null.
+    - weight: Грамаж или количество, ако има. Ако няма, върне null.
+    
+    Не добавяй обяснения, без markdown, без "Изход:" — само валиден JSON.
+    
+    Входен текст:
+    "${rawText}"
+    `;
+
+    
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+    });
+    
+    const jsonText = extractJsonFromMarkdown(response.text);
+    console.log(jsonText);
+    return jsonText;
+}
 
 async function createShoppingList(req, res) {
     const { name } = req.body;
@@ -206,29 +241,29 @@ async function addItemsToList(req, res) {
                 const safeExt = ['.jpg', '.jpeg', '.png', '.webp'].includes(ext.toLowerCase()) ? ext : '.jpg';
                 const uniqueFileName = `item-${uuidv4()}${safeExt}`;
                 const filePath = uniqueFileName;
-                                
+
                 console.log('Uploading image to:', filePath);
-                
+
                 const { error: uploadError, data: uploadData } = await supabase.storage
                     .from('shopping.list.item.images')
                     .upload(filePath, file.buffer, {
                         contentType: file.mimetype,
                         upsert: false,
                     });
-                
+
                 if (uploadError) {
                     console.error('Image upload error:', uploadError.message);
                     return null;
                 }
-                
+
                 // Получаване на публичния URL
                 const { data: publicUrlData } = supabase.storage
                     .from('shopping.list.item.images')
                     .getPublicUrl(filePath);
-                
+
                 const imageUrl = publicUrlData?.publicUrl;
                 const name = text;
-                
+
 
                 if (uploadError) {
                     console.error('Image upload error:', uploadError.message);
@@ -239,10 +274,12 @@ async function addItemsToList(req, res) {
                 //     .from('shopping.list.item.images')
                 //     .getPublicUrl(uniqueFileName);
 
+                const jsonText = await processTextWithGemini(text).then(res => JSON.stringify(res));
                 return {
                     shopping_list_id: shoppingListId,
                     name,
                     raw_text: text,
+                    json_text: jsonText,
                     image_url: publicUrlData.publicUrl,
                     quantity: 1,
                     is_bought: false,
