@@ -42,7 +42,6 @@ async function processTextWithGemini(rawText) {
     Входен текст:
     "${rawText}"
     `;
-
     
     const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
