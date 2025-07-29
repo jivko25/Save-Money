@@ -42,12 +42,12 @@ async function processTextWithGemini(rawText) {
     Входен текст:
     "${rawText}"
     `;
-    
+
     const response = await ai.models.generateContent({
         model: "gemini-2.5-flash",
         contents: prompt,
     });
-    
+
     const jsonText = extractJsonFromMarkdown(response.text);
     console.log(jsonText);
     return jsonText;
@@ -93,14 +93,42 @@ async function getShoppingLists(req, res) {
 
     const { data, error } = await supabase
         .from('user_shopping_lists')
-        .select('shopping_list_id, shopping_lists(*)')
+        .select(`
+            shopping_list_id,
+            shopping_lists (
+                id,
+                name,
+                created_by,
+                created_at,
+                shopping_list_items (
+                    id,
+                    is_bought
+                )
+            )
+        `)
         .eq('user_id', userId);
 
     if (error) return res.status(500).json({ error: error.message });
 
-    const lists = data.map((entry) => entry.shopping_lists);
+    // За всеки списък смятаме брой на купените и общ брой айтъми
+    const lists = data.map(({ shopping_lists }) => {
+        const totalItems = shopping_lists.shopping_list_items.length;
+        const boughtItems = shopping_lists.shopping_list_items.filter(item => item.is_bought).length;
+
+        // Връщаме обект с новите полета
+        return {
+            id: shopping_lists.id,
+            name: shopping_lists.name,
+            created_by: shopping_lists.created_by,
+            created_at: shopping_lists.created_at,
+            totalItems,
+            boughtItems,
+        };
+    });
+
     res.json(lists);
 }
+
 
 async function getShoppingListById(req, res) {
     const { id } = req.params;
