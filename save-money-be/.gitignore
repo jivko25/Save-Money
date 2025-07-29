@@ -1,2 +1,4 @@
 .vercel
 node_modules/
+.env
+quack-scanner-85b31c63cee6.json
