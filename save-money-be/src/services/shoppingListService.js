@@ -1,5 +1,7 @@
 const vision = require('@google-cloud/vision');
 const supabase = require('../../supabase');
+const path = require('path');
+const { v4: uuidv4 } = require('uuid');
 
 const client = new vision.ImageAnnotatorClient({
     credentials: {
@@ -179,7 +181,7 @@ async function addItemsToList(req, res) {
             return res.status(400).json({ error: 'No images uploaded' });
         }
 
-        // Проверка дали user има достъп до списъка (по избор)
+        // Проверка за достъп
         const { data: access, error: accessError } = await supabase
             .from('user_shopping_lists')
             .select('user_id')
@@ -191,42 +193,73 @@ async function addItemsToList(req, res) {
             return res.status(403).json({ error: 'Not authorized to add items to this list' });
         }
 
-        // OCR паралелно за всички файлове
         const insertData = await Promise.all(
             files.map(async (file) => {
+                // OCR
                 const [result] = await client.textDetection({ image: { content: file.buffer } });
                 const detections = result.textAnnotations;
                 const text = detections.length > 0 ? detections[0].description.trim() : null;
 
                 if (!text) return null;
 
+                const ext = path.extname(file.originalname || '') || '.jpg';
+                const safeExt = ['.jpg', '.jpeg', '.png', '.webp'].includes(ext.toLowerCase()) ? ext : '.jpg';
+                const uniqueFileName = `item-${uuidv4()}${safeExt}`;
+                const filePath = uniqueFileName;
+                                
+                console.log('Uploading image to:', filePath);
+                
+                const { error: uploadError, data: uploadData } = await supabase.storage
+                    .from('shopping.list.item.images')
+                    .upload(filePath, file.buffer, {
+                        contentType: file.mimetype,
+                        upsert: false,
+                    });
+                
+                if (uploadError) {
+                    console.error('Image upload error:', uploadError.message);
+                    return null;
+                }
+                
+                // Получаване на публичния URL
+                const { data: publicUrlData } = supabase.storage
+                    .from('shopping.list.item.images')
+                    .getPublicUrl(filePath);
+                
+                const imageUrl = publicUrlData?.publicUrl;
                 const name = text;
-                if (!name) return null;
+                
+
+                if (uploadError) {
+                    console.error('Image upload error:', uploadError.message);
+                    return null;
+                }
+
+                // const { data: publicUrlData } = supabase.storage
+                //     .from('shopping.list.item.images')
+                //     .getPublicUrl(uniqueFileName);
 
                 return {
                     shopping_list_id: shoppingListId,
                     name,
                     raw_text: text,
-                    image_base64: file.buffer.toString('base64'),
+                    image_url: publicUrlData.publicUrl,
                     quantity: 1,
                     is_bought: false,
                 };
             })
         );
 
-        // Филтриране на невалидните записи
         const validItems = insertData.filter(Boolean);
 
         if (validItems.length === 0) {
-            return res.status(400).json({ error: 'No valid texts extracted from images' });
+            return res.status(400).json({ error: 'No valid texts extracted or image uploads failed' });
         }
 
         const { error } = await supabase.from('shopping_list_items').insert(validItems);
-
         if (error) throw error;
 
         res.status(201).json({ message: 'Items added successfully', count: validItems.length });
-
     } catch (error) {
         console.error('Error adding items from images:', error.message);
         res.status(500).json({ error: 'Failed to process uploaded images' });
