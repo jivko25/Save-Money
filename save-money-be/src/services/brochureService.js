@@ -135,20 +135,31 @@ async function scrapeBrouchuresLidl(req, res) {
             if (archiveError) throw archiveError;
         }
 
-        return res.json({
+        if (res) {
+            return res.json({
             message: '✅ Всички брошури са обработени.',
             total: results.length,
             files: results,
             archivedCount: toArchive.length,
-        });
+            });
+        }
+        else {
+            return
+        }
+
 
     } catch (err) {
         if (browser) await browser.close();
         console.error('❌ Lidl scraper error:', err.message);
-        return res.status(500).json({
-            error: 'Грешка при скрейпване или качване.',
-            details: err.message,
-        });
+        if (res) {
+            return res.status(500).json({
+                error: 'Грешка при скрейпване или качване.',
+                details: err.message,
+            });
+        }
+        else {
+            return
+        }
     }
 }
 
@@ -289,17 +300,27 @@ async function scrapeBrouchuresKaufland(req, res) {
             if (archiveError) throw archiveError;
         }
 
-        return res.json({
-            message: '✅ Всички брошури са обработени.',
-            total: results.length,
-            files: results,
-            archivedCount: toArchive.length,
-        });
+        if (res) {
+            return res.json({
+                message: '✅ Всички брошури са обработени.',
+                total: results.length,
+                files: results,
+                archivedCount: toArchive.length,
+            });
+        }
+        else {
+            return
+        }
 
     } catch (err) {
         if (browser) await browser.close();
         console.error('❌ Kaufland scraper error:', err.message);
-        return res.status(500).json({ error: 'Грешка при скрейпване или качване.', details: err.message });
+        if (res) {
+            return res.status(500).json({ error: 'Грешка при скрейпване или качване.', details: err.message });
+        }
+        else {
+            return
+        }
     }
 }
 
@@ -365,10 +386,15 @@ async function scrapeBrouchuresBilla(req, res) {
             if (uploadError) {
                 if (uploadError.message.includes('The resource already exists')) {
                     await browser.close();
-                    return res.json({
-                        message: 'Файлът вече съществува в bucket-а.',
-                        pdfUrl,
-                    });
+                    if (res) {
+                        return res.json({
+                            message: 'Файлът вече съществува в bucket-а.',
+                            pdfUrl,
+                        });
+                    }
+                    else {
+                        return
+                    }
                 }
                 throw uploadError;
             }
@@ -415,20 +441,30 @@ async function scrapeBrouchuresBilla(req, res) {
             if (archiveError) throw archiveError;
         }
 
-        return res.json({
-            message: inserted ? '📥 Нова брошура е добавена.' : 'ℹ️ Брошурата вече съществува.',
-            fileName: inserted ? fileName : null,
-            pdfUrl,
-            archivedCount: toArchive.length,
-        });
+        if (res) {
+            return res.json({
+                message: inserted ? '📥 Нова брошура е добавена.' : 'ℹ️ Брошурата вече съществува.',
+                fileName: inserted ? fileName : null,
+                pdfUrl,
+                archivedCount: toArchive.length,
+            });
+        }
+        else {
+            return
+        }
 
     } catch (err) {
         if (browser) await browser.close();
         console.error('❌ Billa scraper error:', err.message);
-        return res.status(500).json({
-            error: 'Грешка при скрейпване или качване.',
-            details: err.message,
-        });
+        if (res) {
+            return res.status(500).json({
+                error: 'Грешка при скрейпване или качване.',
+                details: err.message,
+            });
+        }
+        else {
+            return
+        }
     }
 }
 

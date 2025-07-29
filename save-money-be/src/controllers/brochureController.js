@@ -16,6 +16,28 @@ brouchuresRouter.post('/scrape/lidl', scrapeBrouchuresLidl);
 brouchuresRouter.post('/scrape/kaufland', scrapeBrouchuresKaufland);
 brouchuresRouter.post('/scrape/billa', scrapeBrouchuresBilla);
 
+brouchuresRouter.get('/scrape/daily-scrape', async (req, res) => {
+    console.log('🚀 Ръчно извикан скрейп:', new Date().toLocaleString('bg-BG', { timeZone: 'Europe/Sofia' }));
+
+    try {
+        console.log('🔍 Скрейп Billa...');
+        await scrapeBrouchuresBilla();
+
+        console.log('🔍 Скрейп Lidl...');
+        await scrapeBrouchuresLidl();
+
+        console.log('🔍 Скрейп Kaufland...');
+        await scrapeBrouchuresKaufland();
+
+        console.log('✅ Скрейп завършен успешно.');
+
+        res.status(200).json({ message: 'Скрейп завършен успешно' });
+    } catch (err) {
+        console.error('❌ Грешка при скрейп:', err.message);
+        res.status(500).json({ error: 'Грешка при скрейп' });
+    }
+});
+
 brouchuresRouter.use(verifySession);
 
 brouchuresRouter.get('/', getAllBrochures);
