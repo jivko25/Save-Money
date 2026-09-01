@@ -1,10 +1,11 @@
 name: Daily brochure scrape
 
 on:
-  # 15:10 Europe/Sofia = 12:10 UTC при лятно часово време (UTC+3).
-  # След теста смени на 09:00 София: 6:00 UTC лято / 7:00 UTC зима.
+  # 08:07 Europe/Sofia = 05:07 UTC при лятно часово време (UTC+3).
+  # Не ползваме :00 — GitHub често забавя или пропуска scheduled jobs в началото на часа.
+  # Зиме (UTC+2) това е 07:07 София; тогава смени на '7 6 * * *'.
   schedule:
-    - cron: '00 13 * * *'
+    - cron: '7 3 * * *'
   workflow_dispatch:
 
 concurrency:
