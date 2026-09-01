@@ -29,6 +29,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Verify required secrets
+        run: |
+          missing=0
+          if [ -z "${SUPABASE_URL}" ]; then
+            echo "Липсва repository secret: SUPABASE_URL"
+            missing=1
+          fi
+          if [ -z "${SUPABASE_SERVICE_ROLE_KEY}" ]; then
+            echo "Липсва repository secret: SUPABASE_SERVICE_ROLE_KEY"
+            missing=1
+          fi
+          if [ "$missing" -ne 0 ]; then
+            echo "Добави ги в GitHub → Settings → Secrets and variables → Actions"
+            exit 1
+          fi
+          echo "Required secrets are present."
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:

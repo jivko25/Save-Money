@@ -1,3 +1,13 @@
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  console.error(
+    'Липсват SUPABASE_URL и/или SUPABASE_SERVICE_ROLE_KEY. Локално попълни save-money-be/.env; в GitHub Actions ги добави като repository secrets (Settings → Secrets and variables → Actions).'
+  );
+  process.exit(1);
+}
+
 const {
   scrapeBrouchuresLidl,
   scrapeBrouchuresKaufland,
