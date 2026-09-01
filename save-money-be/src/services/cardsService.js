@@ -4,27 +4,40 @@ const supabase = require('../../supabase');
 const javascriptBarcodeReader = require('javascript-barcode-reader');
 
 
+// Асинхронна функция за създаване на QR карта от качен файл (multipart form-data)
 async function createQrCardFromMultipart(req, res) {
+    // ID на текущия потребител от middleware-а за автентикация
     const user_id = req.user.id;
+
+    // Вземаме име на картата от body-то на заявката
     const { name } = req.body;
+
+    // Буферът с каченото изображение (ако няма, ще е undefined)
     const imageBuffer = req.file?.buffer;
 
+    // Проверка дали е подадено име и изображение
     if (!name || !imageBuffer) {
         return res.status(400).json({ error: 'Липсва име или изображение' });
     }
 
     try {
+        // Четем изображението с Jimp (библиотека за работа с изображения)
         const image = await Jimp.read(imageBuffer);
+
+        // Създаваме нов обект за разчитане на QR код
         const qr = new QrCode();
 
+        // Дефинираме callback функция, която се изпълнява след опит за разчитане
         qr.callback = async (err, value) => {
+            // Ако не може да се разчете QR кода
             if (err || !value || !value.result) {
                 return res.status(400).json({ error: 'QR кодът не можа да бъде разчетен' });
             }
 
+            // Извличаме съдържанието от QR кода
             const qr_content = value.result;
 
-            // Проверка дали вече съществува
+            // Проверка в базата дали вече съществува карта със същото съдържание за този потребител
             const { data: existing, error: findErr } = await supabase
                 .from('qr_cards')
                 .select('*')
@@ -32,24 +45,31 @@ async function createQrCardFromMultipart(req, res) {
                 .eq('qr_content', qr_content)
                 .maybeSingle();
 
+            // Ако има грешка при търсенето
             if (findErr) return res.status(500).json({ error: findErr.message });
+
+            // Ако вече съществува карта с такъв QR код
             if (existing) return res.status(409).json({ error: 'Тази карта вече съществува' });
 
-            // Запис
+            // Ако не съществува — записваме нова карта в базата
             const { data, error } = await supabase
                 .from('qr_cards')
                 .insert([{ user_id, name, qr_content }])
                 .select();
 
+            // Ако има грешка при записа
             if (error) return res.status(500).json({ error: error.message });
+
+            // Връщаме създадената карта като отговор
             res.json(data[0]);
         };
 
+        // Стартираме декодирането на QR кода от изображението
         qr.decode(image.bitmap);
 
     } catch (e) {
+        // Ако има грешка при четене или обработка на изображението
         console.log(e);
-
         res.status(500).json({ error: 'Грешка при обработка на изображението' });
     }
 };
