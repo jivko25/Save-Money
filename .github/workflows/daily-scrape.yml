@@ -4,7 +4,7 @@ on:
   # 15:10 Europe/Sofia = 12:10 UTC при лятно часово време (UTC+3).
   # След теста смени на 09:00 София: 6:00 UTC лято / 7:00 UTC зима.
   schedule:
-    - cron: '16 12 * * *'
+    - cron: '40 12 * * *'
   workflow_dispatch:
 
 concurrency:
