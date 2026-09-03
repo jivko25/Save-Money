@@ -5,8 +5,8 @@ on:
   # Не ползваме :00 — GitHub често забавя слотове в началото на часа.
   # Зиме (UTC+2) това е 06:37 София.
   schedule:
-    - cron: '37 4 * * 1' # понеделник: Lidl, Billa, Kaufland
-    - cron: '37 4 * * 4' # четвъртък: Lidl, Billa
+    - cron: '37 4 * * 1' # понеделник: Lidl, Kaufland
+    - cron: '37 4 * * 4' # четвъртък: Lidl
     - cron: '37 4 * * 5' # петък: Kaufland
   workflow_dispatch:
     inputs:
@@ -41,9 +41,9 @@ jobs:
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             echo "stores=[\"${DISPATCH_STORE}\"]" >> "$GITHUB_OUTPUT"
           elif [ "$SCHEDULE_CRON" = "37 4 * * 1" ]; then
-            echo 'stores=["Lidl","Billa","Kaufland"]' >> "$GITHUB_OUTPUT"
+            echo 'stores=["Lidl","Kaufland"]' >> "$GITHUB_OUTPUT"
           elif [ "$SCHEDULE_CRON" = "37 4 * * 4" ]; then
-            echo 'stores=["Lidl","Billa"]' >> "$GITHUB_OUTPUT"
+            echo 'stores=["Lidl"]' >> "$GITHUB_OUTPUT"
           elif [ "$SCHEDULE_CRON" = "37 4 * * 5" ]; then
             echo 'stores=["Kaufland"]' >> "$GITHUB_OUTPUT"
           else
