@@ -9,6 +9,7 @@ const { storeController } = require('./src/controllers/storeController');
 const { pushTokenRouter } = require('./src/controllers/PushTokenController');
 const { cardsRouter } = require('./src/controllers/cardsController');
 const brouchuresRouter = require('./src/controllers/brochureController');
+const brochureProductsRouter = require('./src/controllers/brochureProductController');
 const { notificationRouter } = require('./src/controllers/notificationController');
 const shoppingListRouter = require('./src/controllers/shoppingListController.js');
 
@@ -25,6 +26,7 @@ app.use('/api/store', storeController);
 app.use('/api/push-token', pushTokenRouter);
 app.use('/api/qr-card', cardsRouter);
 app.use('/api/brouchures', brouchuresRouter);
+app.use('/api/brochure-products', brochureProductsRouter);
 app.use('/api/notifications', notificationRouter);
 app.use('/api/shopping-list', shoppingListRouter);
 
