@@ -50,14 +50,29 @@ async function deleteExistingProducts({ storeName, validUntil, pageNumber }) {
   if (error) throw error;
 }
 
+async function deleteLocalFiles(filePaths) {
+  await Promise.all(
+    (filePaths || []).map((filePath) => fs.unlink(filePath).catch(() => {}))
+  );
+}
+
+async function cleanupScreenshotsDir(dir) {
+  if (!dir) return;
+  const entries = await fs.readdir(dir).catch(() => []);
+  const pngs = entries.filter((name) => name.endsWith('.png'));
+  await deleteLocalFiles(pngs.map((name) => path.join(dir, name)));
+}
+
 async function uploadPageProducts(products, brochureId) {
   const rows = [];
+  const localShots = [];
 
   for (const product of products) {
     let screenshotPath = null;
     let screenshotUrl = null;
 
     if (product.screenshot_path) {
+      localShots.push(product.screenshot_path);
       screenshotPath = toStoragePath(product);
       const buffer = await fs.readFile(product.screenshot_path);
       const { error } = await supabase.storage.from(BUCKET).upload(screenshotPath, buffer, {
@@ -89,6 +104,7 @@ async function uploadPageProducts(products, brochureId) {
 
   const { error } = await supabase.from('brochure_products').insert(rows);
   if (error) throw error;
+  await deleteLocalFiles(localShots);
   return rows.length;
 }
 
@@ -127,6 +143,9 @@ async function uploadBrochureFromPdf(filePath, options = {}) {
       console.log(`Страница ${page.page}: качени ${count} продукта`);
     },
   });
+
+  await cleanupScreenshotsDir(options.screenshotsDir);
+  console.log('Локалните скрийншоти са изтрити.');
 
   return {
     ...result,
