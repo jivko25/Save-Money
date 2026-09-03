@@ -395,8 +395,10 @@ async function splitPdfProducts(filePath, options = {}) {
   const onlyPage = options.page ? Number(options.page) : null;
   const fromPage = options.fromPage ? Number(options.fromPage) : 1;
   const pages = [];
+  let pageCount = 0;
 
   try {
+    pageCount = doc.numPages;
     for (let pageNum = 1; pageNum <= doc.numPages; pageNum++) {
       if (onlyPage && pageNum !== onlyPage) continue;
       if (!onlyPage && pageNum < fromPage) continue;
@@ -481,8 +483,21 @@ async function splitPdfProducts(filePath, options = {}) {
 
   return {
     fileName: path.basename(absolutePath),
+    pageCount,
     pages,
   };
+}
+
+async function getPdfPageCount(filePath) {
+  const absolutePath = path.resolve(filePath);
+  const buffer = await fs.readFile(absolutePath);
+  const pdfjs = await loadPdfjs();
+  const doc = await pdfjs.getDocument({ data: new Uint8Array(buffer) }).promise;
+  try {
+    return doc.numPages;
+  } finally {
+    await doc.destroy();
+  }
 }
 
 function formatSplitProducts(result) {
@@ -510,6 +525,7 @@ async function logPdfProducts(filePath, options = {}) {
 
 module.exports = {
   splitPdfProducts,
+  getPdfPageCount,
   formatSplitProducts,
   logPdfProducts,
 };

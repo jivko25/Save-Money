@@ -9,7 +9,8 @@
     "pdf:products": "node scripts/log-pdf-products.js",
     "pdf:shots": "node scripts/log-pdf-shots.js",
     "pdf:extract": "node scripts/extract-pdf-products.js",
-    "pdf:upload": "node scripts/upload-pdf-products.js"
+    "pdf:upload": "node scripts/upload-pdf-products.js",
+    "pdf:extract-store": "node scripts/extract-store-brochures.js"
   },
   "keywords": [],
   "author": "",

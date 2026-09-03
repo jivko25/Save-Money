@@ -136,7 +136,11 @@ async function extractBrochureProducts(filePath, options = {}) {
     screenshotsDir: shotsDir,
     scale: options.scale,
   });
-  const meta = parseBrochureMeta(split.fileName);
+  const parsed = parseBrochureMeta(split.fileName);
+  const meta = {
+    store_name: options.storeName || parsed.store_name,
+    valid_until: options.validUntil || parsed.valid_until,
+  };
   const rows = [];
   const skipped = [];
   let geminiCalls = 0;
@@ -144,6 +148,10 @@ async function extractBrochureProducts(filePath, options = {}) {
   console.log(`${split.fileName}: ${split.pages.length} страници`);
 
   for (const page of split.pages) {
+    if (options.shouldStop?.()) {
+      console.log(`Времеви лимит — спиране преди страница ${page.page}. Следващият run продължава оттук.`);
+      break;
+    }
     if (!page.products.length) {
       if (options.onPage) await options.onPage([], page);
       continue;

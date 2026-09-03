@@ -1,0 +1,110 @@
+name: Extract brochure products
+
+on:
+  # 07:37 Europe/Sofia лято = 04:37 UTC, след scrape-а (~06:07 София).
+  # Не ползваме :00 — GitHub често забавя слотове в началото на часа.
+  # Зиме (UTC+2) това е 06:37 София.
+  schedule:
+    - cron: '37 4 * * 1' # понеделник: Lidl, Billa, Kaufland
+    - cron: '37 4 * * 4' # четвъртък: Lidl, Billa
+    - cron: '37 4 * * 5' # петък: Kaufland
+  workflow_dispatch:
+    inputs:
+      store:
+        description: Магазин (Lidl, Kaufland или Billa)
+        required: true
+        type: choice
+        options:
+          - Lidl
+          - Kaufland
+          - Billa
+
+concurrency:
+  group: extract-products
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      stores: ${{ steps.set.outputs.stores }}
+    steps:
+      - id: set
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_STORE: ${{ inputs.store }}
+          SCHEDULE_CRON: ${{ github.event.schedule }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "stores=[\"${DISPATCH_STORE}\"]" >> "$GITHUB_OUTPUT"
+          elif [ "$SCHEDULE_CRON" = "37 4 * * 1" ]; then
+            echo 'stores=["Lidl","Billa","Kaufland"]' >> "$GITHUB_OUTPUT"
+          elif [ "$SCHEDULE_CRON" = "37 4 * * 4" ]; then
+            echo 'stores=["Lidl","Billa"]' >> "$GITHUB_OUTPUT"
+          elif [ "$SCHEDULE_CRON" = "37 4 * * 5" ]; then
+            echo 'stores=["Kaufland"]' >> "$GITHUB_OUTPUT"
+          else
+            echo 'stores=[]' >> "$GITHUB_OUTPUT"
+          fi
+          echo "Магазини: $(grep '^stores=' "$GITHUB_OUTPUT" | cut -d= -f2-)"
+
+  extract:
+    needs: plan
+    if: needs.plan.outputs.stores != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        store: ${{ fromJSON(needs.plan.outputs.stores) }}
+    defaults:
+      run:
+        working-directory: save-money-be
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      EXTRACT_MAX_MS: '6900000'
+      TZ: Europe/Sofia
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify required secrets
+        run: |
+          missing=0
+          if [ -z "${SUPABASE_URL}" ]; then
+            echo "Липсва repository secret: SUPABASE_URL"
+            missing=1
+          fi
+          if [ -z "${SUPABASE_SERVICE_ROLE_KEY}" ]; then
+            echo "Липсва repository secret: SUPABASE_SERVICE_ROLE_KEY"
+            missing=1
+          fi
+          if [ -z "${GEMINI_API_KEY}" ]; then
+            echo "Липсва repository secret: GEMINI_API_KEY"
+            missing=1
+          fi
+          if [ "$missing" -ne 0 ]; then
+            echo "Добави ги в GitHub → Settings → Secrets and variables → Actions"
+            exit 1
+          fi
+          echo "Required secrets are present."
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: save-money-be/package-lock.json
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Extract products for ${{ matrix.store }}
+        timeout-minutes: 115
+        run: npm run pdf:extract-store -- --store=${{ matrix.store }}
