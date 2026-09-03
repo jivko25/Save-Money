@@ -5,3 +5,4 @@ node_modules/
 !.env.example
 encoded.txt
 quack-scanner-85b31c63cee6.json
+tmp/

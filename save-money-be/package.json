@@ -4,7 +4,12 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "scrape:daily": "node scripts/daily-scrape.js"
+    "scrape:daily": "node scripts/daily-scrape.js",
+    "pdf:text": "node scripts/log-pdf-text.js",
+    "pdf:products": "node scripts/log-pdf-products.js",
+    "pdf:shots": "node scripts/log-pdf-shots.js",
+    "pdf:extract": "node scripts/extract-pdf-products.js",
+    "pdf:upload": "node scripts/upload-pdf-products.js"
   },
   "keywords": [],
   "author": "",
@@ -13,6 +18,7 @@
   "dependencies": {
     "@google-cloud/vision": "^5.3.0",
     "@google/genai": "^1.11.0",
+    "@napi-rs/canvas": "^1.0.8",
     "@supabase/supabase-js": "^2.49.4",
     "axios": "^1.10.0",
     "barcode-reader": "^1.6.1",
@@ -28,6 +34,8 @@
     "jimp": "^1.6.0",
     "multer": "^2.0.1",
     "node-cron": "^4.2.0",
+    "pdf-parse": "^2.4.5",
+    "pdfjs-dist": "^4.10.38",
     "puppeteer": "^24.12.0",
     "qrcode-reader": "^1.0.4",
     "uuid": "^11.1.0"
