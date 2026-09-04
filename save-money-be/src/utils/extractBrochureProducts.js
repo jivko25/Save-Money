@@ -149,13 +149,10 @@ async function extractBrochureProducts(filePath, options = {}) {
 
   for (const page of split.pages) {
     if (options.shouldStop?.()) {
-      console.log(`Времеви лимит — спиране преди страница ${page.page}. Следващият run продължава оттук.`);
+      console.log(`Времеви лимит — спиране преди страница ${page.page}.`);
       break;
     }
-    if (!page.products.length) {
-      if (options.onPage) await options.onPage([], page);
-      continue;
-    }
+    if (!page.products.length) continue;
 
     if (geminiCalls > 0) {
       console.log('Пауза 5 секунди преди следващата Gemini заявка...');

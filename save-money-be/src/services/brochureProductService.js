@@ -5,7 +5,6 @@ const {
   extractBrochureProducts,
   parseBrochureMeta,
 } = require('../utils/extractBrochureProducts');
-const { getPdfPageCount } = require('../utils/splitPdfProducts');
 const { retryForever } = require('../utils/retry');
 
 const BUCKET = 'brochure-products';
@@ -129,6 +128,7 @@ async function uploadBrochureFromPdf(filePath, options = {}) {
     validUntil: meta.valid_until,
     shouldStop: options.shouldStop,
     onPage: async (pageRows, page) => {
+      if (!pageRows.length) return;
       const count = await retryForever(
         async () => {
           await deleteExistingProducts({
@@ -197,6 +197,7 @@ async function listActiveBrochures(storeName) {
     .select('id, store_name, file_name, pdf_url, expires_at, uploaded_at')
     .eq('store_name', storeName)
     .eq('archived', false)
+    .is('products_extracted_at', null)
     .gte('expires_at', new Date().toISOString())
     .order('uploaded_at', { ascending: true });
 
@@ -204,17 +205,14 @@ async function listActiveBrochures(storeName) {
   return data || [];
 }
 
-async function getLastExtractedPage(brochureId) {
-  const { data, error } = await supabase
-    .from('brochure_products')
-    .select('page_number')
-    .eq('brochure_id', brochureId)
-    .order('page_number', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
+async function markBrochureExtracted(brochureId) {
+  if (!brochureId) return;
+  const { error } = await supabase
+    .from('brochures')
+    .update({ products_extracted_at: new Date().toISOString() })
+    .eq('id', brochureId)
+    .is('products_extracted_at', null);
   if (error) throw error;
-  return data?.page_number || 0;
 }
 
 async function downloadBrochurePdf(brochure, destDir) {
@@ -283,37 +281,31 @@ async function extractActiveStoreBrochures(storeName, options = {}) {
 
     const pdfPath = await downloadBrochurePdf(brochure, tmpDir);
     try {
-      const pageCount = await getPdfPageCount(pdfPath);
-      const lastPage = await getLastExtractedPage(brochure.id);
-      if (lastPage >= pageCount) {
-        console.log(`${brochure.file_name}: вече извлечена (${pageCount} стр.)`);
-        results.push({
-          brochure_id: brochure.id,
-          file_name: brochure.file_name,
-          status: 'already_done',
-          page_count: pageCount,
-        });
-        continue;
-      }
-
-      const fromPage = lastPage + 1;
-      console.log(`${brochure.file_name}: страници ${fromPage}-${pageCount}`);
+      console.log(`${brochure.file_name}: извличане на продукти`);
       const extracted = await uploadBrochureFromPdf(pdfPath, {
         brochureId: brochure.id,
         storeName: brochure.store_name,
         validUntil: toDateOnly(brochure.expires_at),
-        fromPage,
         screenshotsDir: shotsDir,
         shouldStop: () => Date.now() - started > maxMs,
       });
 
+      await markBrochureExtracted(brochure.id);
+
       results.push({
         brochure_id: brochure.id,
         file_name: brochure.file_name,
-        status: extracted.skipped?.length ? 'partial' : 'done',
+        status: 'done',
         uploaded: extracted.uploaded,
-        from_page: fromPage,
         skipped: extracted.skipped || [],
+      });
+    } catch (err) {
+      console.error(`${brochure.file_name}: ${err.message}`);
+      results.push({
+        brochure_id: brochure.id,
+        file_name: brochure.file_name,
+        status: 'error',
+        error: err.message,
       });
     } finally {
       await fs.unlink(pdfPath).catch(() => {});
